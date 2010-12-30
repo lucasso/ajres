@@ -3,3 +3,5 @@ bin/*
 out/*
 doc/papers
 doc/manuals
+*~
+.gitignore~

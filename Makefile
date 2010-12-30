@@ -6,11 +6,20 @@ FLAGS_ROOT_L= `root-config --glibs`
 srcs=ajres longDataReader common graphs
 objs=$(patsubst %, obj/%.o, $(srcs))
 
-bin/ajres: $(objs)
+bin/ajres: obj bin $(objs)
 	g++ $(FLAGS_L) $(FLAGS_ROOT_L) $(objs) -o $@
 
-obj/%.o: %.cpp %.h
+obj:
+	mkdir obj
+
+bin:
+	mkdir bin
+
+obj/graphs.o: graphs.cpp graphs.h
 	g++ $(FLAGS_ROOT_C) $(FLAGS_C) -c $< -o $@
+
+obj/%.o: %.cpp %.h
+	g++ $(FLAGS_C) -c $< -o $@
 
 doc/konspekt.pdf: doc/konspekt.ps
 	ps2pdf doc/konspekt.ps doc/konspekt.pdf
