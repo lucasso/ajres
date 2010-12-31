@@ -5,3 +5,4 @@ doc/papers
 doc/manuals
 *~
 .gitignore~
+Debug
