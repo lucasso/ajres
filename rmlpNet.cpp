@@ -5,6 +5,35 @@ namespace ajres
 {
 
 dt
+HiddenNron::getConvolutionOfOutputDelayNrosWeightsWithRecentDifs()
+{
+	if (!this->convolution.is_initialized())
+	{
+		dt result = 0;
+
+		RecentW2Difs::const_reverse_iterator lastDifsIt = this->recentW2Difs.rbegin();
+		BOOST_FOREACH(outDelay, this->outDelays)
+		{
+			result += outDelay.weight * (*lastDifsIt);
+			++ lastDiffsPerNronAuxIt;
+		}
+
+		BOOST_ASSERT(lastDifsIt == this->recentW2Difs.rend());
+		this->convolution = boost::optional<dt>(result);
+	}
+
+	return this->convolution.get();
+}
+
+void
+HiddenNron::setOutputDif(dt const newOutputDif)
+{
+	BOOST_ASSERT(!this->finalOut.dif.is_initialized());
+	this->finalOut.dif = boost::optional<dt>(newOutputDif);
+}
+
+
+dt
 RmlpNet::getActivationFunValue(dt const)
 {
 	return dt;
@@ -23,8 +52,21 @@ RmlpNet::RmlpNet() :
 {
 }
 
-//dt
-//RmlpNet::
+void
+RmlpNet::calculateW2Diff(HiddenNron & nron)
+{
+	dt result = nron.getOuputValue();
+
+	BOOST_FOREACH(HiddenNron const & hiddenNron, this->hiddenNrons)
+	{
+		result +=
+			hiddenNron.getOutputWeight() *
+			RmlpNet::getActivationFunDiff(hiddenNron.getInputValue()) *
+			hiddenNron.getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
+	}
+
+	nron.setOutputDif(RmlpNet::getActivationFunDiff(this->globalOutputNron) * result);
+}
 
 dt
 RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
@@ -36,30 +78,10 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 
 	BOOST_FOREACH(hiddenNron, this->hiddenNrons)
 	{
-		dt eq11_bracketSum = hiddenNron.value;
-
-		BOOST_FOREACH(hiddenNronAux, this->hiddenNrons)
-		{
-			dt eq11_secondSum = 0;
-
-			RecentDiffs::const_reverse_iterator lastDiffsPerNronAuxIt = hiddenNronAux.recentOutputDiffsPerOurW2.rbegin();
-			BOOST_FOREACH(weightFromOutDelayNronToNronAux, hiddenNronAux.weightsFromOutDelayNrons)
-			{
-				eq11_secondSum += weightFromOutDelayNronToNronAux * *lastDiffsPerNronAuxIt;
-				++ lastDiffsPerNronAuxIt;
-			}
-
-			BOOST_ASSERT(lastDiffsPerNronAuxIt == hiddenNronAux.rend());
-
-			eq11_bracketSum +=
-				hiddenNronAux.outWeight *
-				RmlpNet::getActivationFunDiff(hiddenNronAux.inputValue) *
-				eq11_secondSum;
-		}
-
 		newDiffsPerW2.push_back(
-			RmlpNet::getActivationFunDiff(this->globalOutputNron) * eq11_bracketSum;
-		);
+
+					);
+
 	}
 
 	BOOST_FOREACH(iputDelayNron, this->inputDelayNrons)

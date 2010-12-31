@@ -3,17 +3,34 @@
 
 #include "common.h"
 #include <deque>
+#include <boost/optional.hpp>
 
 namespace ajres
 {
 
-struct HiddenNron
+struct WeightWithDif
 {
 	dt weight;
+	boost::optional<dt> dif;
+};
 
-	typedef std::deque<dt> RecentDiffs;
-	RecentDiffs recentOutputDiffsPerOurOutWeight;
+struct HiddenNron
+{
+	std::vector<WeightWithDif> inDelays;
+	std::vector<WeightWithDif> outDelays;
+	WeightWithDif finalOut;
 
+	// helpers during computations
+	boost::optional<dt> convolution;
+
+	typedef std::deque<dt> RecentW2Difs;
+	RecentDiffs recentW2Difs;
+
+public:
+
+	dt getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
+
+	void setOutputDif(dt const);
 };
 
 struct InputNron
@@ -43,6 +60,9 @@ class RmlpNet
 
 	static dt getActivationFunValue(dt const);
 	static dt getActivationFunDiff(dt const);
+
+	dt calculateW2Diff(HiddenNron const &) const;
+	dt calculateW1
 
 public:
 
