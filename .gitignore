@@ -6,3 +6,5 @@ doc/manuals
 *~
 .gitignore~
 Debug
+.cproject
+.project
