@@ -3,47 +3,81 @@
 
 #include "common.h"
 #include <deque>
+#include <vector>
 #include <boost/optional.hpp>
 
 namespace ajres
 {
 
-struct WeightWithDif
+struct ActivationFun
+{
+	static dt Value(dt const);
+	static dt Diff(dt const);
+};
+
+struct Entry
 {
 	dt weight;
+	dt value;
 	boost::optional<dt> dif;
 };
 
-struct HiddenNron
+class NronInt
 {
-	std::vector<WeightWithDif> inDelays;
-	std::vector<WeightWithDif> outDelays;
-	WeightWithDif finalOut;
+	dt inputValue;
+	dt outputValue;
+	dt outputDiff;
+
+public:
+
+	NronInt();
+
+	void setInput(dt const);
+	dt getInput() const;
+	dt getOutput() const;
+	dt getDiff() const;
+};
+
+class HiddenNron
+{
+	std::vector<Entry> inDelays;
+	std::vector<Entry> outDelays;
+
+	NronInt nronInt;
 
 	// helpers during computations
 	boost::optional<dt> convolution;
 
+	// used during weights update
+	boost::optional<dt> w2DifOpt;
 	typedef std::deque<dt> RecentW2Difs;
-	RecentDiffs recentW2Difs;
+	RecentW2Difs recentW2Difs;
 
 public:
 
+	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays);
+
 	dt getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
 
-	void setOutputDif(dt const);
+	NronInt & getNronInternal();
+	NronInt const & getNronInternalConst() const;
 };
 
-struct InputNron
+class FinalNron
 {
+	std::vector<Entry> input;
+	NronInt nronInt;
 
+public:
+
+	FinalNron(uint32 const numHidden);
+
+	Entry const & getEntry(uint32 const) const;
+	void setW2Dif(uint32 const idx, dt const dif);
+
+	NronInt & getNronInternal();
+	NronInt const & getNronInternalConst() const;
 };
-
-struct GlobalOutputNron
-{
-
-};
-
-typedef std::vector<WeightAndDiff> NronsWeightsVec;
 
 class RmlpNet
 {
@@ -51,18 +85,13 @@ class RmlpNet
 	uint16 const numOutputDelayNrons;
 	uint16 const numHiddenNrons; // without bias
 
+	std::vector<NronInt> inputDelayNrons;
+	std::vector<NronInt> outputDelayNrons;
 	std::vector<HiddenNron> hiddenNrons;
-	NronsWeightsVec outputNronsWeights;
+	FinalNron finalNron;
 
-	std::vector<dt> delayNronsValues;
-	std::vector<dt> hiddenNronsValues;
-	dt finalNronValue; // this is also current prediction
-
-	static dt getActivationFunValue(dt const);
-	static dt getActivationFunDiff(dt const);
-
-	dt calculateW2Diff(HiddenNron const &) const;
-	dt calculateW1
+	dt calculateW2Diff(HiddenNron const &); // non const cuz it calculates and stores convolution
+	//dt calculateW1
 
 public:
 
