@@ -9,6 +9,8 @@
 namespace ajres
 {
 
+class RandomGenerator; // forward, used for nrons initiaization
+
 struct ActivationFun
 {
 	static dt Value(dt const);
@@ -21,7 +23,9 @@ struct Entry
 	dt value;
 	boost::optional<dt> dif;
 
-	Entry();
+	Entry(RandomGenerator &, bool const isBias = false); // generator to initialize weight, bias value is 1, 0 oterwise
+
+	static void weightUpdateHelper(std::vector<Entry> &, dt const factor);
 };
 
 class NronInt
@@ -40,6 +44,12 @@ public:
 	dt getDiff() const;
 };
 
+enum DelayNronType
+{
+	INPUT_DELAY,
+	OUTPUT_DELAY
+};
+
 class HiddenNron
 {
 	std::vector<Entry> inDelays;
@@ -54,18 +64,15 @@ class HiddenNron
 	typedef std::deque<dt> RecentW2Difs;
 	RecentW2Difs recentW2Difs;
 
+	// helper methods
+	template <DelayNronType delayNronType> std::vector<Entry> & getEntries();
+	template <DelayNronType delayNronType> std::vector<Entry> const & getEntries() const;
 
 public:
 
-	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays);
+	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays, RandomGenerator &);
 
 	dt getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
-
-	enum DelayNronType
-	{
-		INPUT_DELAY,
-		OUTPUT_DELAY
-	};
 
 	template <DelayNronType delayNronType>
 	void setW1Dif(uint32 const idx, dt const dif);
@@ -73,13 +80,11 @@ public:
 	template <DelayNronType delayNronType>
 	Entry const & getEntry(uint32 const) const;
 
+	void updateWeights(dt const factor);
+	void addRecentW2Dif(dt const);
+
 	NronInt & getNronInternal();
 	NronInt const & getNronInternalConst() const;
-
-private:
-
-	template <DelayNronType delayNronType> std::vector<Entry> & getEntries();
-	template <DelayNronType delayNronType> std::vector<Entry> const & getEntries() const;
 };
 
 class FinalNron
@@ -89,10 +94,11 @@ class FinalNron
 
 public:
 
-	FinalNron(uint32 const numHidden);
+	FinalNron(uint32 const numHidden, RandomGenerator & gen);
 
 	Entry const & getEntry(uint32 const) const;
 	void setW2Dif(uint32 const idx, dt const dif);
+	void updateWeights(dt const factor);
 
 	NronInt & getNronInternal();
 	NronInt const & getNronInternalConst() const;
@@ -104,21 +110,41 @@ class RmlpNet
 	uint16 const numOutputDelayNrons;
 	uint16 const numHiddenNrons; // without bias
 
+	std::auto_ptr<RandomGenerator> const randomGenerator;
+
 	std::vector<NronInt> inputDelayNrons;
 	std::vector<NronInt> outputDelayNrons;
 	std::vector<HiddenNron> hiddenNrons;
 	FinalNron finalNron;
 
+	dt learningFactor;
+
+	dt calculateImpl(
+		bool const includeHiddenLayersBias,
+		dt const hiddenLayerSumAddon,
+		uint32 const convolutionAddonIdx,
+		dt const convolutionAddonValue
+	);
+
 	dt calculateW2Diff(HiddenNron const &); // non const cuz it calculates and stores convolution
 	dt calculateW1Diff(uint32 const hiddenLayerIdx, dt inputLayerNronValue);
-	//dt calculateW1
+
+	template <DelayNronType delayNronType>
+	void setW1Difs(std::vector<NronInt> const & delayNrons);
 
 public:
 
 	RmlpNet();
+	~RmlpNet();
 
 	dt addNewMeasurementAndGetPrediction(dt const);
 };
+
+std::ostream & operator << (std::ostream &, Entry const &);
+std::ostream & operator << (std::ostream &, NronInt const &);
+std::ostream & operator << (std::ostream &, HiddenNron const &);
+std::ostream & operator << (std::ostream &, FinalNron const &);
+std::ostream & operator << (std::ostream &, RmlpNet const &);
 
 
 } // ns ajres
