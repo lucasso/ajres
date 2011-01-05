@@ -52,9 +52,8 @@ RandomGenerator::getWeight()
 // ------------------------ Entry --------------------------
 // ---------------------------------------------------------
 
-Entry::Entry(RandomGenerator & gen, bool const isBias) :
-	weight(gen.getWeight()),
-	value(isBias?1:0)
+Entry::Entry(RandomGenerator & gen) :
+	weight(gen.getWeight())
 {
 }
 
@@ -65,6 +64,16 @@ Entry::weightUpdateHelper(std::vector<Entry> & entries, dt const factor)
 	{
 		BOOST_ASSERT(entry.dif.is_initialized());
 		entry.weight += factor * (*entry.dif);
+	}
+}
+
+void
+Entry::difsResetHelper(std::vector<Entry> & entries)
+{
+	BOOST_FOREACH(Entry & entry, entries)
+	{
+		BOOST_ASSERT(entry.dif.is_initialized());
+		entry.dif = boost::optional<dt>();
 	}
 }
 
@@ -186,6 +195,13 @@ HiddenNron::setW1Dif(uint32 const idx, dt const dif)
 	difOpt = boost::optional<dt>(dif);
 }
 
+void
+HiddenNron::resetDifs()
+{
+	Entry::difsResetHelper(this->inDelays);
+	Entry::difsResetHelper(this->outDelays);
+}
+
 template <DelayNronType delayNronType> Entry const &
 HiddenNron::getEntry(uint32 const idx) const
 {
@@ -232,6 +248,12 @@ FinalNron::setW2Dif(uint32 const idx, dt const dif)
 
 	BOOST_ASSERT(!difOpt.is_initialized());
 	difOpt = boost::optional<dt>(dif);
+}
+
+void
+FinalNron::resetDifs()
+{
+	Entry::difsResetHelper(this->input);
 }
 
 void
@@ -377,7 +399,8 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 {
 	// new measurement has come, we may actualize weights
 
-	// calculate outut per w2 weight diffs
+	// calculate w1 and w2 weight diffs
+
 	uint32 idx = 0;
 
 	BOOST_FOREACH(HiddenNron const & hiddenNron, this->hiddenNrons)
@@ -389,6 +412,8 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	this->setW1Difs<INPUT_DELAY>(this->inputDelayNrons);
 	this->setW1Difs<OUTPUT_DELAY>(this->outputDelayNrons);
 
+	// adjust weights according to newly computet\d w1 and w2 difs
+
 	dt const weightsChangefactor = this->learningFactor * (measurement - this->finalNron.getNronInternalConst().getOutput());
 
 	this->finalNron.updateWeights(weightsChangefactor);
@@ -397,6 +422,28 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	{
 		hiddenNron.updateWeights(weightsChangefactor);
 	}
+
+	// update recentW2diffs to be used in next w1 w2 dif compatations
+
+	idx = 0;
+	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
+	{
+		boost::optional<dt> const & difOpt = this->finalNron.getEntry(idx).dif;
+		BOOST_ASSERT(difOpt.is_initialized());
+		hiddenNron.addRecentW2Dif(*difOpt);
+		++ idx;
+	}
+
+	// reset w1 and w2 difs
+
+	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
+	{
+		hiddenNron.resetDifs();
+	}
+
+	this->finalNron.resetDifs();
+
+	// TO BE DONE: update values
 
 	return 0;
 }

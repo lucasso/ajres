@@ -20,12 +20,12 @@ struct ActivationFun
 struct Entry
 {
 	dt weight;
-	dt value;
 	boost::optional<dt> dif;
 
-	Entry(RandomGenerator &, bool const isBias = false); // generator to initialize weight, bias value is 1, 0 oterwise
+	Entry(RandomGenerator &); // generator to initialize weight
 
 	static void weightUpdateHelper(std::vector<Entry> &, dt const factor);
+	static void difsResetHelper(std::vector<Entry> &);
 };
 
 class NronInt
@@ -76,6 +76,7 @@ public:
 
 	template <DelayNronType delayNronType>
 	void setW1Dif(uint32 const idx, dt const dif);
+	void resetDifs();
 
 	template <DelayNronType delayNronType>
 	Entry const & getEntry(uint32 const) const;
@@ -99,6 +100,7 @@ public:
 	Entry const & getEntry(uint32 const) const;
 	void setW2Dif(uint32 const idx, dt const dif);
 	void updateWeights(dt const factor);
+	void resetDifs();
 
 	NronInt & getNronInternal();
 	NronInt const & getNronInternalConst() const;
