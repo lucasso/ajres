@@ -20,6 +20,8 @@ struct Entry
 	dt weight;
 	dt value;
 	boost::optional<dt> dif;
+
+	Entry();
 };
 
 class NronInt
@@ -49,9 +51,9 @@ class HiddenNron
 	boost::optional<dt> convolution;
 
 	// used during weights update
-	boost::optional<dt> w2DifOpt;
 	typedef std::deque<dt> RecentW2Difs;
 	RecentW2Difs recentW2Difs;
+
 
 public:
 
@@ -59,8 +61,25 @@ public:
 
 	dt getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
 
+	enum DelayNronType
+	{
+		INPUT_DELAY,
+		OUTPUT_DELAY
+	};
+
+	template <DelayNronType delayNronType>
+	void setW1Dif(uint32 const idx, dt const dif);
+
+	template <DelayNronType delayNronType>
+	Entry const & getEntry(uint32 const) const;
+
 	NronInt & getNronInternal();
 	NronInt const & getNronInternalConst() const;
+
+private:
+
+	template <DelayNronType delayNronType> std::vector<Entry> & getEntries();
+	template <DelayNronType delayNronType> std::vector<Entry> const & getEntries() const;
 };
 
 class FinalNron
@@ -91,6 +110,7 @@ class RmlpNet
 	FinalNron finalNron;
 
 	dt calculateW2Diff(HiddenNron const &); // non const cuz it calculates and stores convolution
+	dt calculateW1Diff(uint32 const hiddenLayerIdx, dt inputLayerNronValue);
 	//dt calculateW1
 
 public:
