@@ -68,6 +68,8 @@ class HiddenNron
 	template <DelayNronType delayNronType> std::vector<Entry> & getEntries();
 	template <DelayNronType delayNronType> std::vector<Entry> const & getEntries() const;
 
+	friend std::ostream & operator << (std::ostream &, HiddenNron const &);
+
 public:
 
 	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays, RandomGenerator &);
@@ -92,6 +94,8 @@ class FinalNron
 {
 	std::vector<Entry> input;
 	NronInt nronInt;
+
+	friend std::ostream & operator << (std::ostream &, FinalNron const &);
 
 public:
 
@@ -133,6 +137,8 @@ class RmlpNet
 
 	template <DelayNronType delayNronType>
 	void setW1Difs(std::vector<NronInt> const & delayNrons);
+
+	friend std::ostream & operator << (std::ostream &, RmlpNet const &);
 
 public:
 

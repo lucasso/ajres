@@ -41,11 +41,16 @@ RandomGenerator::RandomGenerator() :
 dt
 RandomGenerator::getWeight()
 {
-	uint32 const randomNum = this->gen();
-	dt const factor = static_cast<dt>(randomNum * MAX_CHANGE) / GRANULARITY;
-	return factor < 0
-		? static_cast<dt>(1) / (-factor)
-		: static_cast<dt>(1) * factor;
+	int32 const randomNum = this->gen();
+	BOOST_ASSERT(randomNum >= -1000);
+	BOOST_ASSERT(randomNum <= 1000);
+	dt const factor = (randomNum == 0) ? 1.0 : static_cast<dt>(randomNum * MAX_CHANGE) / GRANULARITY;
+	dt const retVal = (factor < 0)
+		? static_cast<dt>(1.0) / (-factor)
+		: static_cast<dt>(1.0) * factor;
+
+	std::cout << "randomNum:" << randomNum << ", factor:" << factor << ", retVal:" << retVal << std::endl;
+	return retVal;
 }
 
 // ---------------------------------------------------------
@@ -75,6 +80,11 @@ Entry::difsResetHelper(std::vector<Entry> & entries)
 		BOOST_ASSERT(entry.dif.is_initialized());
 		entry.dif = boost::optional<dt>();
 	}
+}
+std::ostream & operator << (std::ostream & osek, Entry const & entry)
+{
+	osek << "Entry{weight:" << entry.weight << ", dif:" << entry.dif << "}";
+	return osek;
 }
 
 // ---------------------------------------------------------
@@ -110,6 +120,12 @@ dt
 NronInt::getDiff() const
 {
 	return this->outputDiff;
+}
+
+std::ostream & operator << (std::ostream & osek, NronInt const & nronInt)
+{
+	osek << "NronInt{i:" << nronInt.getInput() << ",o:" << nronInt.getOutput() << ",d:" << nronInt.getDiff() << "}";
+	return osek;
 }
 
 // ---------------------------------------------------------
@@ -223,6 +239,15 @@ HiddenNron::addRecentW2Dif(dt const val)
 	this->recentW2Difs.pop_back();
 }
 
+std::ostream & operator << (std::ostream & osek, HiddenNron const & hiddenNron)
+{
+	osek << "HiddenNron{" << hiddenNron.nronInt << ",conv:" << hiddenNron.convolution
+		<< "\n   inDelays:" << ContainerPrinter<std::vector<Entry>,'\n'>(hiddenNron.inDelays)
+		<< "\n   outDelays:" << ContainerPrinter<std::vector<Entry>,'\n'>(hiddenNron.outDelays)
+		<< "\n   recentW2Difs:" << ContainerPrinter<std::deque<dt> >(hiddenNron.recentW2Difs) << "}";
+	return osek;
+}
+
 // ---------------------------------------------------------
 // ----------------------- Final Nron ----------------------
 // ---------------------------------------------------------
@@ -272,6 +297,13 @@ NronInt const &
 FinalNron::getNronInternalConst() const
 {
 	return this->nronInt;
+}
+
+std::ostream & operator << (std::ostream & osek, FinalNron const & finalNron)
+{
+	osek << "FinalNron{" << finalNron.getNronInternalConst()
+		<< ",input:" << ContainerPrinter<std::vector<Entry> >(finalNron.input) << "}";
+	return osek;
 }
 
 // ---------------------------------------------------------
@@ -448,6 +480,14 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	return 0;
 }
 
-
+std::ostream & operator << (std::ostream & osek, RmlpNet const & rmlpNet)
+{
+	osek << "RmlpNet{ learningFactor:" << rmlpNet.learningFactor
+		<< "\n INPUT_DELAY_NRONS:\n" << ContainerPrinter<std::vector<NronInt>,'\n'>(rmlpNet.inputDelayNrons)
+		<< "\n OPUTPUT_DELAY_NRONS:\n" << ContainerPrinter<std::vector<NronInt>,'\n'>(rmlpNet.outputDelayNrons)
+		<< "\n HIDDEN_NRONS:\n" << ContainerPrinter<std::vector<HiddenNron>,'\n'>(rmlpNet.hiddenNrons)
+		<< "\n FINAL_NRON:\n" << rmlpNet.finalNron << "}\n";
+	return osek;
+}
 
 } // ns ajres

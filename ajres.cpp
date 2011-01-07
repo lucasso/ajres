@@ -5,6 +5,7 @@
 #include "longDataReader.h"
 #include "graphs.h"
 #include "analyzer.h"
+#include "rmlpNet.h"
 
 namespace ajres
 {
@@ -29,6 +30,9 @@ void mainAjres()
 
 	Graphs::plotGraph1D(lods, 300, 100, "LOD", "lod.png");
 	Graphs::plotGraph1D(ut1utcDiffs, 800, 300, "UT1 - UTC", "ut1utcDiff.png");
+
+	RmlpNet rmlpNet;
+	std::cout << rmlpNet;
 }
 
 
