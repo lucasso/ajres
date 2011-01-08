@@ -69,6 +69,16 @@ public:
 	}
 };
 
+#define AJRES_ASSERT(exp, log) \
+{ \
+	if (!(exp)) { \
+		std::cout << "ASSERTION FAILED: " << log << "\n" << backtrace() << "\n"; \
+		BOOST_ASSERT(exp); \
+	} \
+}
+
+
+
 }
 
 #endif /* __ARES_COMMON_H */

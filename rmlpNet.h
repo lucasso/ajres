@@ -33,16 +33,19 @@ class NronInt
 	dt inputValue;
 	dt outputValue;
 	dt outputDiff;
+	bool biasNronFlag;
 
 public:
 
-	NronInt();
+	NronInt(bool const biasNronFlag);
 
-	void setBias();
 	void setInput(dt const);
 	dt getInput() const;
 	dt getOutput() const;
 	dt getDiff() const;
+
+	bool isBias() const;
+	std::ostream & print(std::ostream &) const;
 
 	static void shiftValuesHelper(std::vector<NronInt> &, dt const, bool const);
 };
@@ -76,7 +79,7 @@ class HiddenNron
 public:
 
 	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays, RandomGenerator &);
-	HiddenNron(uint32 const numOutDelays); // biasNron
+	HiddenNron(); // biasNron
 
 	dt getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
 
@@ -142,11 +145,14 @@ class RmlpNet
 	template <DelayNronType delayNronType>
 	void setW1Difs(std::vector<NronInt> const & delayNrons);
 
+	void computeAndSetValueOfHiddenNron(uint32 const, HiddenNron &) const;
+	void computeAndSetValueOfFinalNron();
+
 	friend std::ostream & operator << (std::ostream &, RmlpNet const &);
 
 public:
 
-	RmlpNet();
+	RmlpNet(uint32 const numInputDelayNrons, uint32 const numOutputDelayNrons, uint32 const numHiddenNrons);
 	~RmlpNet();
 
 	dt addNewMeasurementAndGetPrediction(dt const);

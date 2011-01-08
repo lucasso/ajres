@@ -3,11 +3,16 @@ FLAGS_C=-Wall -Werror
 FLAGS_ROOT_C= `root-config --cflags`
 FLAGS_ROOT_L= `root-config --glibs`
 
-srcs=ajres longDataReader common graphs rmlpNet
+srcs=longDataReader common graphs rmlpNet
 objs=$(patsubst %, obj/%.o, $(srcs))
 
-bin/ajres: obj bin $(objs)
-	g++ $(FLAGS_L) $(FLAGS_ROOT_L) $(objs) -o $@
+all: bin/ajres bin/rmlpTest
+
+bin/ajres: obj bin $(objs) obj/ajres.o
+	g++ $(FLAGS_L) $(FLAGS_ROOT_L) $(objs) obj/ajres.o -o $@
+
+bin/rmlpTest: obj bin $(objs) obj/rmlpTest.o
+	g++ $(FLAGS_L) $(FLAGS_ROOT_L) $(objs) obj/rmlpTest.o -o $@
 
 obj:
 	mkdir obj
@@ -21,6 +26,9 @@ obj/graphs.o: graphs.cpp graphs.h
 obj/%.o: %.cpp %.h
 	g++ $(FLAGS_C) -c $< -o $@
 
+obj/rmlpTest.o: tests/rmlpTest.cpp
+	g++ $(FLAGS_C) -c $< -o $@
+
 doc/konspekt.pdf: doc/konspekt.ps
 	ps2pdf doc/konspekt.ps doc/konspekt.pdf
 
@@ -32,7 +40,7 @@ konspekt.dvi: konspekt.tex
 	latex konspekt.tex
 
 clean:
-	rm -rf obj/*.o bin/ajres *~ 
+	rm -rf obj/*.o bin/ajres bin/rmlpTest *~ 
 
 cleandoc:
 	rm -rf konspekt.dvi konspekt.log konspekt.aux konspekt.toc doc/konspekt.pdf doc/konspekt.ps doc/texput.log texput.log

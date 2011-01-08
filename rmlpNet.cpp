@@ -68,6 +68,7 @@ Entry::weightUpdateHelper(std::vector<Entry> & entries, dt const factor)
 {
 	BOOST_FOREACH(Entry & entry, entries)
 	{
+		//std::cout << "updating entry:" << entry << " by factor:" << factor << "\n";
 		BOOST_ASSERT(entry.dif.is_initialized());
 		entry.weight += factor * (*entry.dif);
 	}
@@ -92,22 +93,25 @@ std::ostream & operator << (std::ostream & osek, Entry const & entry)
 // ----------------------- NronInt -------------------------
 // ---------------------------------------------------------
 
-NronInt::NronInt()
+NronInt::NronInt(bool const biasNronFlagArg) :
+	biasNronFlag(biasNronFlagArg)
 {
-	this->setInput(0);
-}
-
-void
-NronInt::setBias()
-{
-	this->outputValue = 1.0;
-	this->inputValue = 0.0;
-	this->outputValue = 0.0;
+	if (this->biasNronFlag)
+	{
+		this->outputValue = 1.0;
+		this->inputValue = 0.0;
+		this->outputValue = 0.0;
+	}
+	else
+	{
+		this->setInput(0);
+	}
 }
 
 void
 NronInt::setInput(dt const newValue)
 {
+	BOOST_ASSERT(!this->biasNronFlag);
 	this->inputValue = newValue;
 	this->outputValue = ActivationFun::Value(this->inputValue);
 	this->outputDiff = ActivationFun::Diff(this->inputValue);
@@ -116,6 +120,7 @@ NronInt::setInput(dt const newValue)
 dt
 NronInt::getInput() const
 {
+	BOOST_ASSERT(!this->biasNronFlag);
 	return this->inputValue;
 }
 
@@ -128,7 +133,14 @@ NronInt::getOutput() const
 dt
 NronInt::getDiff() const
 {
+	BOOST_ASSERT(!this->biasNronFlag);
 	return this->outputDiff;
+}
+
+bool
+NronInt::isBias() const
+{
+	return this->biasNronFlag;
 }
 
 void
@@ -152,10 +164,23 @@ NronInt::shiftValuesHelper(std::vector<NronInt> & nronInts, dt const newValue, b
 	}
 }
 
+std::ostream &
+NronInt::print(std::ostream & osek) const
+{
+	if (this->biasNronFlag)
+	{
+		osek << "NronInt{bias,o:" << this->outputValue << "}";
+	}
+	else
+	{
+		osek << "NronInt{i:" << this->inputValue << ",o:" << this->outputValue << ",d:" << this->outputDiff << "}";
+	}
+	return osek;
+}
+
 std::ostream & operator << (std::ostream & osek, NronInt const & nronInt)
 {
-	osek << "NronInt{i:" << nronInt.getInput() << ",o:" << nronInt.getOutput() << ",d:" << nronInt.getDiff() << "}";
-	return osek;
+	return nronInt.print(osek);
 }
 
 // ---------------------------------------------------------
@@ -165,12 +190,19 @@ std::ostream & operator << (std::ostream & osek, NronInt const & nronInt)
 HiddenNron::HiddenNron(uint32 const numInDelays, uint32 const numOutDelays, RandomGenerator & gen) :
 	inDelays(), // can not use (num, obj) ctor because nrons have to have different weights
 	outDelays(),
+	nronInt(false),
 	recentW2Difs(numOutDelays, 0)
 {
 	this->inDelays.reserve(numInDelays);
 	this->outDelays.reserve(numOutDelays);
 	for (uint32 i=0; i<numInDelays; ++i) this->inDelays.push_back(Entry(gen));
 	for (uint32 i=0; i<numOutDelays; ++i) this->outDelays.push_back(Entry(gen));
+}
+
+HiddenNron::HiddenNron() :
+	nronInt(true),
+	convolution(0.0)
+{
 }
 
 NronInt &
@@ -214,6 +246,9 @@ HiddenNron::getConvolutionOfOutputDelayNrosWeightsWithRecentDifs()
 {
 	if (!this->convolution.is_initialized())
 	{
+		BOOST_ASSERT(this->recentW2Difs.size() == this->outDelays.size());
+		BOOST_ASSERT(!this->nronInt.isBias()); // outDelays may be empty even for non bias nrons
+
 		dt result = 0;
 
 		RecentW2Difs::const_reverse_iterator lastDifsIt = this->recentW2Difs.rbegin();
@@ -233,6 +268,8 @@ HiddenNron::getConvolutionOfOutputDelayNrosWeightsWithRecentDifs()
 template <DelayNronType delayNronType> void
 HiddenNron::setW1Dif(uint32 const idx, dt const dif)
 {
+	BOOST_ASSERT(!this->nronInt.isBias());
+
 	std::vector<Entry> & entriesVec = this->template getEntries<delayNronType>();
 	BOOST_ASSERT(idx < entriesVec.size());
 	boost::optional<dt> & difOpt = entriesVec.at(idx).dif;
@@ -257,14 +294,20 @@ HiddenNron::getEntry(uint32 const idx) const
 void
 HiddenNron::updateWeights(dt const factor)
 {
+	BOOST_ASSERT(!this->nronInt.isBias());
+	//std::cout << "updating inDelays for " << *this << "\n";
 	Entry::weightUpdateHelper(this->inDelays, factor);
+	//std::cout << "updating outDelays for " << *this << "\n";
 	Entry::weightUpdateHelper(this->outDelays, factor);
 }
 
 void
 HiddenNron::addRecentW2Dif(dt const val)
 {
-	BOOST_ASSERT(!this->recentW2Difs.empty()); // should be equal to num of output signal delays
+	// should be equal to num of output signal delays in nonbias nrons
+	BOOST_ASSERT(this->recentW2Difs.size() == this->outDelays.size());
+	BOOST_ASSERT(!this->nronInt.isBias());
+
 	this->recentW2Difs.push_front(val);
 	this->recentW2Difs.pop_back();
 }
@@ -283,7 +326,8 @@ std::ostream & operator << (std::ostream & osek, HiddenNron const & hiddenNron)
 // ---------------------------------------------------------
 
 FinalNron::FinalNron(uint32 const numHidden, RandomGenerator & gen) :
-	input()
+	input(),
+	nronInt(false)
 {
 	this->input.reserve(numHidden);
 	for (uint32 i=0; i<numHidden; ++i) this->input.push_back(Entry(gen));
@@ -356,18 +400,21 @@ ActivationFun::Diff(dt const)
 // ------------------------- RmlpNet -----------------------
 // ---------------------------------------------------------
 
-RmlpNet::RmlpNet() :
-	numInputDelayNrons(30),
-	numOutputDelayNrons(5),
-	numHiddenNrons(10),
+RmlpNet::RmlpNet(uint32 const numInputDelayNronsArg, uint32 const numOutputDelayNronsArg, uint32 const numHiddenNronsArg) :
+	numInputDelayNrons(numInputDelayNronsArg),
+	numOutputDelayNrons(numOutputDelayNronsArg),
+	numHiddenNrons(numHiddenNronsArg),
 	randomGenerator(new RandomGenerator),
-	inputDelayNrons(this->numInputDelayNrons),
-	outputDelayNrons(this->numOutputDelayNrons),
+	inputDelayNrons(this->numInputDelayNrons, NronInt(false)),
+	outputDelayNrons(this->numOutputDelayNrons, NronInt(false)),
 	hiddenNrons(this->numHiddenNrons, HiddenNron(this->numInputDelayNrons, this->numOutputDelayNrons, *this->randomGenerator)),
 	finalNron(this->numHiddenNrons, *this->randomGenerator),
 	learningFactor(0.1)
 {
-	this->inputDelayNrons[0].setBias();
+	BOOST_ASSERT(inputDelayNrons.size() >= 2u); // at least bias and current input value
+	BOOST_ASSERT(hiddenNrons.size() >= 2u); // at least bias and one hidden nron
+	this->inputDelayNrons[0] = NronInt(true);
+	this->hiddenNrons[0] = HiddenNron();
 }
 
 RmlpNet::~RmlpNet()
@@ -426,7 +473,7 @@ RmlpNet::calculateW2Diff(HiddenNron const & nron)
 dt
 RmlpNet::calculateW1Diff(uint32 const hiddenLayerIdx, dt inputLayerNronValue)
 {
-	BOOST_ASSERT(hiddenLayerIdx > 1);
+	BOOST_ASSERT(hiddenLayerIdx >= 1);
 	BOOST_ASSERT(hiddenLayerIdx < this->hiddenNrons.size());
 
 	return this->calculateImpl(
@@ -453,6 +500,41 @@ RmlpNet::setW1Difs(std::vector<NronInt> const & delayNrons)
 	}
 }
 
+void
+RmlpNet::computeAndSetValueOfHiddenNron(uint32 const idx, HiddenNron & hiddenNron) const
+{
+	dt newValue = 0.0;
+	uint32 delayIdx = 0;
+	BOOST_FOREACH(NronInt const & nronInt, this->inputDelayNrons)
+	{
+		newValue += nronInt.getOutput() * hiddenNron.getEntry<INPUT_DELAY>(delayIdx).weight;
+		++ delayIdx;
+	}
+	delayIdx = 0;
+	BOOST_FOREACH(NronInt const & nronInt, this->outputDelayNrons)
+	{
+		newValue += nronInt.getOutput() * hiddenNron.getEntry<OUTPUT_DELAY>(delayIdx).weight;
+		++ delayIdx;
+	}
+
+	hiddenNron.getNronInternal().setInput(newValue);
+}
+
+void
+RmlpNet::computeAndSetValueOfFinalNron()
+{
+	dt newValue = 0.0;
+	uint32 idx = 0;
+
+	BOOST_FOREACH(HiddenNron const & hiddenNron, this->hiddenNrons)
+	{
+		newValue += hiddenNron.getNronInternalConst().getOutput() * this->finalNron.getEntry(idx).weight;
+		++ idx;
+	}
+
+	this->finalNron.getNronInternal().setInput(newValue);
+}
+
 dt
 RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 {
@@ -461,7 +543,6 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	// calculate w1 and w2 weight diffs
 
 	uint32 idx = 0;
-
 	BOOST_FOREACH(HiddenNron const & hiddenNron, this->hiddenNrons)
 	{
 		this->finalNron.setW2Dif(idx, this->calculateW2Diff(hiddenNron));
@@ -477,9 +558,11 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 
 	this->finalNron.updateWeights(weightsChangefactor);
 
+	idx = 0;
 	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
 	{
-		hiddenNron.updateWeights(weightsChangefactor);
+		if (idx) hiddenNron.updateWeights(weightsChangefactor);
+		++ idx;
 	}
 
 	// update recentW2diffs to be used in next w1 w2 dif compatations
@@ -487,13 +570,18 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	idx = 0;
 	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
 	{
-		boost::optional<dt> const & difOpt = this->finalNron.getEntry(idx).dif;
-		BOOST_ASSERT(difOpt.is_initialized());
-		hiddenNron.addRecentW2Dif(*difOpt);
+		if (idx != 0)
+		{
+			boost::optional<dt> const & difOpt = this->finalNron.getEntry(idx).dif;
+			BOOST_ASSERT(difOpt.is_initialized());
+			hiddenNron.addRecentW2Dif(*difOpt);
+		}
 		++ idx;
 	}
 
 	// reset w1 and w2 difs
+
+	std::cout << "reseting DIFs\n" << *this << "\n";
 
 	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
 	{
@@ -502,12 +590,24 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 
 	this->finalNron.resetDifs();
 
-	// TO BE DONE: update values
+	// update values
 
 	NronInt::shiftValuesHelper(this->outputDelayNrons, this->finalNron.getNronInternalConst().getOutput(), true);
 	NronInt::shiftValuesHelper(this->inputDelayNrons, measurement, false);
 
-	return 0;
+	idx = 0;
+	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
+	{
+		if (idx != 0)
+		{
+			this->computeAndSetValueOfHiddenNron(idx, hiddenNron);
+		}
+		++ idx;
+	}
+
+	this->computeAndSetValueOfFinalNron();
+
+	return this->finalNron.getNronInternalConst().getOutput();
 }
 
 std::ostream & operator << (std::ostream & osek, RmlpNet const & rmlpNet)
