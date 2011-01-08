@@ -44,12 +44,13 @@ RandomGenerator::getWeight()
 	int32 const randomNum = this->gen();
 	BOOST_ASSERT(randomNum >= -1000);
 	BOOST_ASSERT(randomNum <= 1000);
-	dt const factor = (randomNum == 0) ? 1.0 : static_cast<dt>(randomNum * MAX_CHANGE) / GRANULARITY;
+	dt const factor = static_cast<dt>(randomNum * (MAX_CHANGE-1)) / GRANULARITY;
 	dt const retVal = (factor < 0)
-		? static_cast<dt>(1.0) / (-factor)
-		: static_cast<dt>(1.0) * factor;
-
-	std::cout << "randomNum:" << randomNum << ", factor:" << factor << ", retVal:" << retVal << std::endl;
+		? static_cast<dt>(1.0) / (-factor+1.0)
+		: static_cast<dt>(1.0) * (factor+1.0);
+	//std::cout << "rand:" << randomNum << ", fact:" << factor << ", retVal:" << retVal << "\n";
+	BOOST_ASSERT(retVal <= MAX_CHANGE);
+	BOOST_ASSERT(retVal >= 1/MAX_CHANGE);
 	return retVal;
 }
 
@@ -97,6 +98,14 @@ NronInt::NronInt()
 }
 
 void
+NronInt::setBias()
+{
+	this->outputValue = 1.0;
+	this->inputValue = 0.0;
+	this->outputValue = 0.0;
+}
+
+void
 NronInt::setInput(dt const newValue)
 {
 	this->inputValue = newValue;
@@ -120,6 +129,27 @@ dt
 NronInt::getDiff() const
 {
 	return this->outputDiff;
+}
+
+void
+NronInt::shiftValuesHelper(std::vector<NronInt> & nronInts, dt const newValue, bool const skipFirst)
+{
+	bool firstSkipped = !skipFirst;
+	dt valueShifted = newValue;
+	BOOST_FOREACH(NronInt & nronInt, nronInts)
+	{
+		if (!firstSkipped)
+		{
+			firstSkipped = true;
+			BOOST_ASSERT(nronInt.getOutput() == 1.0);
+		}
+		else
+		{
+			dt const prevInput = nronInt.getInput();
+			nronInt.setInput(valueShifted);
+			valueShifted = prevInput;
+		}
+	}
 }
 
 std::ostream & operator << (std::ostream & osek, NronInt const & nronInt)
@@ -337,10 +367,7 @@ RmlpNet::RmlpNet() :
 	finalNron(this->numHiddenNrons, *this->randomGenerator),
 	learningFactor(0.1)
 {
-	// random initialization of weights
-
-	RandomGenerator gen;
-
+	this->inputDelayNrons[0].setBias();
 }
 
 RmlpNet::~RmlpNet()
@@ -476,6 +503,9 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	this->finalNron.resetDifs();
 
 	// TO BE DONE: update values
+
+	NronInt::shiftValuesHelper(this->outputDelayNrons, this->finalNron.getNronInternalConst().getOutput(), true);
+	NronInt::shiftValuesHelper(this->inputDelayNrons, measurement, false);
 
 	return 0;
 }

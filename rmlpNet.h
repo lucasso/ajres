@@ -38,10 +38,13 @@ public:
 
 	NronInt();
 
+	void setBias();
 	void setInput(dt const);
 	dt getInput() const;
 	dt getOutput() const;
 	dt getDiff() const;
+
+	static void shiftValuesHelper(std::vector<NronInt> &, dt const, bool const);
 };
 
 enum DelayNronType
@@ -73,6 +76,7 @@ class HiddenNron
 public:
 
 	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays, RandomGenerator &);
+	HiddenNron(uint32 const numOutDelays); // biasNron
 
 	dt getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
 
