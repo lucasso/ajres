@@ -1,5 +1,5 @@
 #FLAGS_C=-I/usr/include/ -I/usr/local/include/boost-1_35/ -Wall
-FLAGS_C=-Wall -Werror
+FLAGS_C=-Wall -Werror -ggdb  -gstabs  -gstabs+
 FLAGS_ROOT_C= `root-config --cflags`
 FLAGS_ROOT_L= `root-config --glibs`
 

@@ -10,6 +10,7 @@
 namespace ajres
 {
 
+// juju: dodac boost program options
 void mainAjres()
 {
 	LongDataReader reader;

@@ -69,10 +69,12 @@ public:
 	}
 };
 
+extern std::string backtrace();
+
 #define AJRES_ASSERT(exp, log) \
 { \
 	if (!(exp)) { \
-		std::cout << "ASSERTION FAILED: " << log << "\n" << backtrace() << "\n"; \
+		std::cout << "ASSERTION FAILED: " << log << "\n" << ajres::backtrace() << "\n"; \
 		BOOST_ASSERT(exp); \
 	} \
 }

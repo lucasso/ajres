@@ -133,7 +133,7 @@ NronInt::getOutput() const
 dt
 NronInt::getDiff() const
 {
-	BOOST_ASSERT(!this->biasNronFlag);
+	AJRES_ASSERT(!this->biasNronFlag, "unexpected bias nron found:" << *this);
 	return this->outputDiff;
 }
 
@@ -449,7 +449,7 @@ RmlpNet::calculateImpl(
 	{
 		result +=
 			this->finalNron.getEntry(idx).weight *
-			it->getNronInternalConst().getDiff() *
+			it->getNronInternalConst().getDiff() * // juju: nie mozna brac tej pochodnej z 1go hidden nronu ktory jest biasem
 			(it->getConvolutionOfOutputDelayNrosWeightsWithRecentDifs()
 			+ (idx == convolutionAddonIdx ? convolutionAddonValue : 0.0));
 		++ idx;
