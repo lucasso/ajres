@@ -100,7 +100,7 @@ NronInt::NronInt(bool const biasNronFlagArg) :
 	{
 		this->outputValue = 1.0;
 		this->inputValue = 0.0;
-		this->outputValue = 0.0;
+		this->outputDiff = 0.0;
 	}
 	else
 	{
@@ -120,7 +120,7 @@ NronInt::setInput(dt const newValue)
 dt
 NronInt::getInput() const
 {
-	BOOST_ASSERT(!this->biasNronFlag);
+	AJRES_ASSERT(!this->biasNronFlag, "trying to get input rom bias nron, " << *this);
 	return this->inputValue;
 }
 
@@ -153,7 +153,8 @@ NronInt::shiftValuesHelper(std::vector<NronInt> & nronInts, dt const newValue, b
 		if (!firstSkipped)
 		{
 			firstSkipped = true;
-			BOOST_ASSERT(nronInt.getOutput() == 1.0);
+			AJRES_ASSERT(nronInt.isBias(), "only bias nrons should be skipped buttrying to skip:" << nronInt);
+			AJRES_ASSERT(nronInt.getOutput() == 1.0, "bias nrons output should be 1, but there is not, " << nronInt);
 		}
 		else
 		{
@@ -423,7 +424,6 @@ RmlpNet::~RmlpNet()
 
 dt
 RmlpNet::calculateImpl(
-	bool const includeHiddenLayersBias,
 	dt const hiddenLayerSumAddon,
 	uint32 const convolutionAddonIdx,
 	dt const convolutionAddonValue
@@ -433,15 +433,8 @@ RmlpNet::calculateImpl(
 
 	BOOST_ASSERT(!this->hiddenNrons.empty());
 	std::vector<HiddenNron>::iterator const itEnd = this->hiddenNrons.end();
-	std::vector<HiddenNron>::iterator it = this->hiddenNrons.begin();
-	uint32 idx = 0;
-
-	if (!includeHiddenLayersBias)
-	{
-		++ it;
-		idx = 1;
-		BOOST_ASSERT(convolutionAddonIdx != 0);
-	}
+	std::vector<HiddenNron>::iterator it = (++ this->hiddenNrons.begin());
+	uint32 idx = 1;
 
 	BOOST_ASSERT(it != itEnd);
 
@@ -464,7 +457,6 @@ dt
 RmlpNet::calculateW2Diff(HiddenNron const & nron)
 {
 	return this->calculateImpl(
-		true,
 		nron.getNronInternalConst().getOutput(),
 		0, 0.0
 	);
@@ -477,7 +469,6 @@ RmlpNet::calculateW1Diff(uint32 const hiddenLayerIdx, dt inputLayerNronValue)
 	BOOST_ASSERT(hiddenLayerIdx < this->hiddenNrons.size());
 
 	return this->calculateImpl(
-		false,
 		0,
 		hiddenLayerIdx, inputLayerNronValue
 	);
@@ -592,8 +583,8 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 
 	// update values
 
-	NronInt::shiftValuesHelper(this->outputDelayNrons, this->finalNron.getNronInternalConst().getOutput(), true);
-	NronInt::shiftValuesHelper(this->inputDelayNrons, measurement, false);
+	NronInt::shiftValuesHelper(this->outputDelayNrons, this->finalNron.getNronInternalConst().getOutput(), false);
+	NronInt::shiftValuesHelper(this->inputDelayNrons, measurement, true);
 
 	idx = 0;
 	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)

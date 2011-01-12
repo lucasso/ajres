@@ -133,7 +133,6 @@ class RmlpNet
 	dt learningFactor;
 
 	dt calculateImpl(
-		bool const includeHiddenLayersBias,
 		dt const hiddenLayerSumAddon,
 		uint32 const convolutionAddonIdx,
 		dt const convolutionAddonValue
