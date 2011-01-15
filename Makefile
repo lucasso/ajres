@@ -3,7 +3,7 @@ FLAGS_C=-Wall -Werror -ggdb  -gstabs  -gstabs+
 FLAGS_ROOT_C= `root-config --cflags`
 FLAGS_ROOT_L= `root-config --glibs`
 
-srcs=longDataReader common graphs rmlpNet
+srcs=longDataReader common graphs rmlpNet learningFactor
 objs=$(patsubst %, obj/%.o, $(srcs))
 
 all: bin/ajres bin/rmlpTest

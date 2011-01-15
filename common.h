@@ -2,7 +2,7 @@
 #define __ARES_COMMON_H
 
 #include <string>
-#include <ostream>
+#include <iostream>
 #include <memory>
 #include <boost/optional.hpp>
 

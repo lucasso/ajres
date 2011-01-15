@@ -2,9 +2,11 @@
 #define _AJRES_RMLPNET_H_
 
 #include "common.h"
+#include "learningFactor.h"
 #include <deque>
 #include <vector>
 #include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
 
 namespace ajres
 {
@@ -18,10 +20,12 @@ public:
 	static std::auto_ptr<RandomGenerator> createDefault();
 };
 
-struct ActivationFun
+class ActivationFun
 {
-	static dt Value(dt const);
-	static dt Diff(dt const);
+public:
+	virtual ~ActivationFun();
+	virtual dt value(dt const) const = 0;
+	virtual dt diff(dt const) const = 0;
 };
 
 struct Entry
@@ -42,10 +46,11 @@ class NronInt
 	dt outputDiff;
 	std::string name; // for debug purpose only
 	bool biasNronFlag;
+	boost::shared_ptr<ActivationFun> activationFun;
 
 public:
 
-	NronInt(std::string const & name, bool const biasNronFlag);
+	NronInt(std::string const & name, bool const biasNronFlag, boost::shared_ptr<ActivationFun> activationFun);
 
 	void setInput(dt const);
 	dt getInput() const;
@@ -87,7 +92,12 @@ class HiddenNron
 
 public:
 
-	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays, RandomGenerator &, std::string const & name);
+	HiddenNron(
+		uint32 const numInDelays, uint32 const numOutDelays,
+		RandomGenerator &, std::string const & name,
+		boost::shared_ptr<ActivationFun> activationFun
+	);
+
 	HiddenNron(std::string const & name); // biasNron
 
 	dt getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
@@ -98,6 +108,9 @@ public:
 
 	template <DelayNronType delayNronType>
 	Entry const & getEntry(uint32 const) const;
+
+	template <DelayNronType delayNronType>
+	Entry & getEntryForHacking(uint32 const);
 
 	void updateWeights(dt const factor);
 	void addRecentW2Dif(dt const);
@@ -115,9 +128,10 @@ class FinalNron
 
 public:
 
-	FinalNron(uint32 const numHidden, RandomGenerator & gen);
+	FinalNron(uint32 const numHidden, RandomGenerator & gen, boost::shared_ptr<ActivationFun>);
 
 	Entry const & getEntry(uint32 const) const;
+	Entry & getEntryForHacking(uint32 const);
 	void setW2Dif(uint32 const idx, dt const dif);
 	void updateWeights(dt const factor);
 	void resetDifs();
@@ -132,14 +146,12 @@ class RmlpNet
 	uint16 const numOutputDelayNrons;
 	uint16 const numHiddenNrons; // without bias
 
-	std::auto_ptr<RandomGenerator> const randomGenerator;
-
 	std::vector<NronInt> inputDelayNrons;
 	std::vector<NronInt> outputDelayNrons;
 	std::vector<HiddenNron> hiddenNrons;
 	FinalNron finalNron;
 
-	dt learningFactor;
+	LearningFactor learningFactor;
 
 	dt calculateImpl(
 		dt const hiddenLayerSumAddon,
@@ -155,6 +167,10 @@ class RmlpNet
 
 	void computeAndSetValueOfHiddenNron(uint32 const, HiddenNron &) const;
 	void computeAndSetValueOfFinalNron();
+
+	void computeValues();
+	void checkDif(Entry & entry, dt const measurement, dt const origOutput, dt const origError);
+	void checkDifs(dt const measurement) const;
 
 	friend std::ostream & operator << (std::ostream &, RmlpNet const &);
 

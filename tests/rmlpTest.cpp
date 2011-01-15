@@ -20,11 +20,14 @@ public:
 bool
 constantValuePredictionTest()
 {
-	RmlpNet net(2,1,2, std::auto_ptr<RandomGenerator>(new ConstantGenerator<2u>));
+	RmlpNet net(5,3,2, std::auto_ptr<RandomGenerator>(new ConstantGenerator<2u>));
 
-	for (uint32 i = 0; i < 10; ++i)
+	for (uint32 i = 0; i < 10000; ++i)
 	{
-		std::cout << "prediction no " << i << " is " << net.addNewMeasurementAndGetPrediction(3.0) << "\n";
+		dt const expect = 3.0 + i * 1.5;
+		dt const prediction = net.addNewMeasurementAndGetPrediction(expect);
+		std::cout << "prediction no " << i << " is " << prediction << " expected:" << expect << "\n";
+		if (prediction == expect) break;
 	}
 
 	return true;
