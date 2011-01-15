@@ -9,7 +9,14 @@
 namespace ajres
 {
 
-class RandomGenerator; // forward, used for nrons initiaization
+class RandomGenerator
+{
+public:
+	virtual ~RandomGenerator();
+	virtual dt getWeight() = 0;
+
+	static std::auto_ptr<RandomGenerator> createDefault();
+};
 
 struct ActivationFun
 {
@@ -33,16 +40,18 @@ class NronInt
 	dt inputValue;
 	dt outputValue;
 	dt outputDiff;
+	std::string name; // for debug purpose only
 	bool biasNronFlag;
 
 public:
 
-	NronInt(bool const biasNronFlag);
+	NronInt(std::string const & name, bool const biasNronFlag);
 
 	void setInput(dt const);
 	dt getInput() const;
 	dt getOutput() const;
 	dt getDiff() const;
+	std::string const & getName() const;
 
 	bool isBias() const;
 	std::ostream & print(std::ostream &) const;
@@ -78,8 +87,8 @@ class HiddenNron
 
 public:
 
-	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays, RandomGenerator &);
-	HiddenNron(); // biasNron
+	HiddenNron(uint32 const numInDelays, uint32 const numOutDelays, RandomGenerator &, std::string const & name);
+	HiddenNron(std::string const & name); // biasNron
 
 	dt getConvolutionOfOutputDelayNrosWeightsWithRecentDifs();
 
@@ -151,7 +160,10 @@ class RmlpNet
 
 public:
 
-	RmlpNet(uint32 const numInputDelayNrons, uint32 const numOutputDelayNrons, uint32 const numHiddenNrons);
+	RmlpNet(
+		uint32 const numInputDelayNrons, uint32 const numOutputDelayNrons, uint32 const numHiddenNrons,
+		std::auto_ptr<RandomGenerator>);
+
 	~RmlpNet();
 
 	dt addNewMeasurementAndGetPrediction(dt const);
