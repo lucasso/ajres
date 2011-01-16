@@ -720,7 +720,7 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 
 	std::cout << "new measurement:" << measurement << ", values updated, difs computed\n" << *this << "\n\n";
 
-	this->checkDifs(measurement);
+	//this->checkDifs(measurement);
 
 	// adjust weights according to newly computet\d w1 and w2 difs
 
