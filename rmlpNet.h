@@ -140,7 +140,7 @@ public:
 	NronInt const & getNronInternalConst() const;
 };
 
-class RmlpNet
+class RmlpNet : LearningFactor::ErrorInfoDb
 {
 	uint16 const numInputDelayNrons; // without bias
 	uint16 const numOutputDelayNrons;
@@ -151,7 +151,8 @@ class RmlpNet
 	std::vector<HiddenNron> hiddenNrons;
 	FinalNron finalNron;
 
-	LearningFactor learningFactor;
+	LearningFactor & learningFactor;
+	dt measurement;
 
 	dt calculateImpl(
 		dt const hiddenLayerSumAddon,
@@ -172,13 +173,21 @@ class RmlpNet
 	void checkDif(Entry & entry, dt const measurement, dt const origOutput, dt const origError);
 	void checkDifs(dt const measurement) const;
 
+	virtual dt getError(dt const proposedLFactor) const; // LearningFactor::ErrorInfoDb interface
+
+	// main steps od addNew...
+
+	void computeDirectionOfWeigtsChange();
+	void updateWeights(dt const learningFactor);
+	void changeValues();
+
 	friend std::ostream & operator << (std::ostream &, RmlpNet const &);
 
 public:
 
 	RmlpNet(
 		uint32 const numInputDelayNrons, uint32 const numOutputDelayNrons, uint32 const numHiddenNrons,
-		std::auto_ptr<RandomGenerator>);
+		std::auto_ptr<RandomGenerator>, LearningFactor &);
 
 	~RmlpNet();
 

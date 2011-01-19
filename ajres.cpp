@@ -32,7 +32,8 @@ void mainAjres()
 	Graphs::plotGraph1D(lods, 300, 100, "LOD", "lod.png");
 	Graphs::plotGraph1D(ut1utcDiffs, 800, 300, "UT1 - UTC", "ut1utcDiff.png");
 
-	RmlpNet rmlpNet(5,5,3, RandomGenerator::createDefault());
+	std::auto_ptr<LearningFactor> lFactor = LearningFactorCreate::createAdaptativeLearningFactor();
+	RmlpNet rmlpNet(5,5,3, RandomGenerator::createDefault(), *lFactor);
 	std::cout << rmlpNet;
 }
 

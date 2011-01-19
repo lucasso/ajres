@@ -6,27 +6,28 @@
 namespace ajres
 {
 
-
 class LearningFactor
 {
-	dt const maxAllowedErrorIncrease;
-	dt const decreaseFactor;
-	dt const increaseFactor;
-
-	dt lFactor;
-	boost::optional<dt> error;
-
 public:
 
-	LearningFactor(
-		dt const initialLfactor,
-		dt const maxAllowedErrorIncrease = 1.04,
-		dt const decreaseFactor = 0.7,
-		dt const increaseFactor = 1.05
-	);
+	virtual ~LearningFactor();
 
-	dt getLfactor() const;
-	dt computeLfactorUsingCurrentError(dt const currentStepError);
+	class ErrorInfoDb
+	{
+	public:
+		virtual ~ErrorInfoDb();
+		virtual dt getError(dt const proposedLFactor) const = 0;
+	};
+
+	virtual dt getLfactor() const = 0;
+	virtual dt computeLfactor(ErrorInfoDb &) = 0;
+};
+
+struct LearningFactorCreate
+{
+	static std::auto_ptr<LearningFactor> createAdaptativeLearningFactor(dt const initialFactor = 1.0);
+	static std::auto_ptr<LearningFactor> createSecondOrderPolynomialBasedLearningFactor();
+	static std::auto_ptr<LearningFactor> createBisectionBasedLearningFactor();
 };
 
 }

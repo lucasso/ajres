@@ -17,44 +17,65 @@ namespace ajres
 // ------------------- Random Generator --------------------
 // ---------------------------------------------------------
 
+enum RandomGenMode
+{
+	POSITIVES_AROUND_1,
+	AROUND_0
+};
+
+template <RandomGenMode genMode>
 class RandomGeneratorImpl : public RandomGenerator
 {
 	enum Constants
 	{
 		GRANULARITY = 1000,
-		MAX_CHANGE = 3 // FIXME: should go from parameters or config
 	};
 	boost::mt19937 genSource;
 	boost::uniform_int<int> genDistrib;
 	boost::variate_generator<boost::mt19937&, boost::uniform_int<int> > gen;
 
+	dt const maxChange;
+
 public:
 
-	RandomGeneratorImpl();
+	RandomGeneratorImpl(dt const maxChange);
 	virtual dt getWeight();
 };
 
-RandomGeneratorImpl::RandomGeneratorImpl() :
+template <RandomGenMode genMode>
+RandomGeneratorImpl<genMode>::RandomGeneratorImpl(dt const maxChangeArg) :
 	genSource(),
 	genDistrib(-GRANULARITY,GRANULARITY),
-	gen(this->genSource, this->genDistrib)
+	gen(this->genSource, this->genDistrib),
+	maxChange(maxChangeArg)
 {
 }
 
-dt
-RandomGeneratorImpl::getWeight()
+template <RandomGenMode genMode> dt
+RandomGeneratorImpl<genMode>::getWeight()
 {
 	int32 const randomNum = this->gen();
-	BOOST_ASSERT(randomNum >= -1000);
-	BOOST_ASSERT(randomNum <= 1000);
-	dt const factor = static_cast<dt>(randomNum * (MAX_CHANGE-1)) / GRANULARITY;
-	dt const retVal = (factor < 0)
-		? static_cast<dt>(1.0) / (-factor+1.0)
-		: static_cast<dt>(1.0) * (factor+1.0);
-	//std::cout << "rand:" << randomNum << ", fact:" << factor << ", retVal:" << retVal << "\n";
-	BOOST_ASSERT(retVal <= MAX_CHANGE);
-	BOOST_ASSERT(retVal >= 1/MAX_CHANGE);
-	return retVal;
+	BOOST_ASSERT(randomNum >= -GRANULARITY);
+	BOOST_ASSERT(randomNum <= GRANULARITY);
+	dt const factor = this->maxChange * randomNum / GRANULARITY;
+
+	switch (genMode)
+	{
+	case POSITIVES_AROUND_1:
+	{
+		dt const retVal = (factor < 0)
+			? static_cast<dt>(1.0) / (-factor+1.0)
+			: static_cast<dt>(1.0) * (factor+1.0);
+		//std::cout << "rand:" << randomNum << ", fact:" << factor << ", retVal:" << retVal << "\n";
+		BOOST_ASSERT(retVal <= this->maxChange);
+		BOOST_ASSERT(retVal >= 1/this->maxChange);
+		return retVal;
+	}
+	case AROUND_0:
+	{
+		return factor;
+	}
+	}
 }
 
 RandomGenerator::~RandomGenerator()
@@ -64,7 +85,7 @@ RandomGenerator::~RandomGenerator()
 std::auto_ptr<RandomGenerator>
 RandomGenerator::createDefault()
 {
-	return std::auto_ptr<RandomGenerator>(new RandomGeneratorImpl);
+	return std::auto_ptr<RandomGenerator>(new RandomGeneratorImpl<AROUND_0>(1.0));
 }
 
 // ---------------------------------------------------------
@@ -466,7 +487,8 @@ RmlpNet::RmlpNet(
 	uint32 const numInputDelayNronsArg,
 	uint32 const numOutputDelayNronsArg,
 	uint32 const numHiddenNronsArg,
-	std::auto_ptr<RandomGenerator> randomGenerator
+	std::auto_ptr<RandomGenerator> randomGenerator,
+	LearningFactor & learningFactorArg
 ) :
 	numInputDelayNrons(numInputDelayNronsArg),
 	numOutputDelayNrons(numOutputDelayNronsArg),
@@ -474,8 +496,8 @@ RmlpNet::RmlpNet(
 	inputDelayNrons(),
 	outputDelayNrons(),
 	hiddenNrons(),
-	finalNron(this->numHiddenNrons, *randomGenerator, boost::shared_ptr<ActivationFun>(new LinearActivationFun)),
-	learningFactor(0.001)
+	finalNron(this->numHiddenNrons, *randomGenerator, boost::shared_ptr<ActivationFun>(new SigmoidalActivationFun<1u>)),
+	learningFactor(learningFactorArg)
 {
 	boost::shared_ptr<ActivationFun> sigmoidalActivationFun(new SigmoidalActivationFun<1u>);
 
@@ -646,23 +668,6 @@ RmlpNet::checkDif(Entry & entry, dt const measurement, dt const origOutput, dt c
 void
 RmlpNet::checkDifs(dt const measurement) const
 {
-//	RmlpNet tmpNet(*this);
-//	for (uint32 i = 0; i < 2; ++i)
-//	{
-//		std::vector<NronInt> & firstLayerNrons = (i==0?tmpNet.inputDelayNrons:tmpNet.outputDelayNrons);
-//		BOOST_FOREACH(NronInt & nronInt, firstLayerNrons)
-//		{
-//			if (!nronInt.isBias())
-//			{
-//				nronInt.setInput(nronInt.getInput()*1.01);
-//			}
-//		}
-//	}
-
-//	dt const finalOutoutDelta =
-//
-//		- this->finalNron.getNronInternalConst().getOutput();
-
 	dt const origOutput = this->finalNron.getNronInternalConst().getOutput();
 	dt const origError = ::pow(measurement - this->finalNron.getNronInternalConst().getOutput(),2.0) / 2.0;
 
@@ -695,19 +700,29 @@ RmlpNet::checkDifs(dt const measurement) const
 }
 
 dt
-RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
+RmlpNet::getError(dt const proposedLFactor) const
 {
-	// new measurement has come
+	dt const measurement = this->inputDelayNrons[1].getInput();
 
-	NronInt::shiftValuesHelper(this->outputDelayNrons, this->finalNron.getNronInternalConst().getOutput(), false);
-	NronInt::shiftValuesHelper(this->inputDelayNrons, measurement, true);
+	if (proposedLFactor == 0)
+	{
+		dt const predictionError = measurement - this->finalNron.getNronInternalConst().getOutput();
+		return predictionError;
+	}
+	else
+	{
+		RmlpNet tmpNet(*this);
+		tmpNet.updateWeights(proposedLFactor);
+		tmpNet.changeValues();
+		dt const predictionError = measurement - tmpNet.finalNron.getNronInternalConst().getOutput();
+		return predictionError;
+		//AJRES_ASSERT(false, "not-implemented");
+	}
+}
 
-	this->computeValues();
-
-	// actualize weights
-
-	// calculate w1 and w2 weight diffs
-
+void
+RmlpNet::computeDirectionOfWeigtsChange()
+{
 	uint32 idx = 0;
 	BOOST_FOREACH(HiddenNron const & hiddenNron, this->hiddenNrons)
 	{
@@ -718,29 +733,7 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	this->setW1Difs<INPUT_DELAY>(this->inputDelayNrons);
 	this->setW1Difs<OUTPUT_DELAY>(this->outputDelayNrons);
 
-	std::cout << "new measurement:" << measurement << ", values updated, difs computed\n" << *this << "\n\n";
-
-	//this->checkDifs(measurement);
-
-	// adjust weights according to newly computet\d w1 and w2 difs
-
-	dt const predictionError = measurement - this->finalNron.getNronInternalConst().getOutput();
-	this->learningFactor.computeLfactorUsingCurrentError(predictionError);
-	dt const weightsChangefactor = this->learningFactor.getLfactor() * predictionError;
-
-	std::cout << "weight update factor is: " << weightsChangefactor << " = lFactor:"
-		<< this->learningFactor.getLfactor() << " * predictionError:" << predictionError << "\n";
-
-	this->finalNron.updateWeights(weightsChangefactor);
-
-	idx = 0;
-	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
-	{
-		if (idx) hiddenNron.updateWeights(weightsChangefactor);
-		++ idx;
-	}
-
-	// update recentW2diffs to be used in next w1 w2 dif compatations
+	// update recentW2Difs to be used in next iteration
 
 	idx = 0;
 	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
@@ -753,10 +746,25 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 		}
 		++ idx;
 	}
+}
 
-	std::cout << "still measurement:" << measurement << ", weights updated using factor:" << weightsChangefactor << "\n" << *this << "\n";
+void
+RmlpNet::updateWeights(dt const lFactorValue)
+{
+	dt const weightsChangefactor = lFactorValue * this->getError(0); // predictionError;
 
-	// reset w1 and w2 difs
+	this->finalNron.updateWeights(weightsChangefactor);
+
+	uint32 idx = 0;
+	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
+	{
+		if (idx) hiddenNron.updateWeights(weightsChangefactor);
+		++ idx;
+	}
+
+	std::cout << "measurement:" << measurement << ", weights update	d using factor:" << weightsChangefactor << "\n" << *this << "\n";
+
+	// difs are no longer needed
 
 	BOOST_FOREACH(HiddenNron & hiddenNron, this->hiddenNrons)
 	{
@@ -764,6 +772,73 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	}
 
 	this->finalNron.resetDifs();
+}
+
+void
+RmlpNet::changeValues()
+{
+	NronInt::shiftValuesHelper(this->outputDelayNrons, this->finalNron.getNronInternalConst().getOutput(), false);
+	NronInt::shiftValuesHelper(this->inputDelayNrons, this->measurement, true);
+
+	this->computeValues();
+}
+
+dt
+RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
+{
+
+	// mam jakies wejscie i obliczam wyjscie i je zwracam
+	// (
+	//   licze kierunek w jakim wyjscie zalezy od wag
+	//   pomiar
+	// ) - mozna zamienic miejscami
+	// teraz w tym kiedynku sprawdzam jak zmienic wagi by wyjscie zmienilo sie na takie z min bledem
+	// pomiar to teraz moje 'mam jakies wejscie', obl wyjscie i zwracam do usera
+
+	// czyli bedzie tak:
+
+	// pomiar
+	// licze kierunek
+	// spr jak zmienic wagi, bo mam wreszcie blad
+	// zmieniam wagi
+	// zmieniam watrosci nronow
+	// zwracam predykcje do usera
+
+	this->computeDirectionOfWeigtsChange();
+	this->measurement = measurement;
+	this->learningFactor.computeLfactor(*this);
+	this->updateWeights(this->learningFactor.getLfactor());
+
+	std::cout << "weight update factor is: " << (this->learningFactor.getLfactor() * this->getError(0)) << " = lFactor:"
+			<< this->learningFactor.getLfactor() << " * predictionError:" << this->getError(0) << "\n";
+
+	this->changeValues();
+
+	// new measurement has come
+
+
+
+	// actualize weights
+
+	// calculate w1 and w2 weight diffs
+
+	//juju
+	std::cout << "new measurement:" << measurement << ", values updated, difs computed\n" << *this << "\n\n";
+
+	//this->checkDifs(measurement);
+
+	// adjust weights according to newly computed w1 and w2 difs
+
+
+
+
+	// update recentW2diffs to be used in next w1 w2 dif compatations
+
+
+
+	// reset w1 and w2 difs
+
+
 
 	// update values
 
