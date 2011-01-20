@@ -1,5 +1,9 @@
+#include <sstream>
+
 #include "learningFactor.h"
 #include <math.h>
+
+#include "graphs.h"
 
 namespace ajres
 {
@@ -33,7 +37,7 @@ public:
 	);
 
 	virtual dt getLfactor() const;
-	virtual dt computeLfactor(ErrorInfoDb &);
+	virtual dt computeLfactor(ErrorInfoDb const &);
 };
 
 AdaLearningFactor::AdaLearningFactor(
@@ -65,7 +69,7 @@ AdaLearningFactor::getLfactor() const
 }
 
 dt
-AdaLearningFactor::computeLfactor(LearningFactor::ErrorInfoDb & errorInfo)
+AdaLearningFactor::computeLfactor(LearningFactor::ErrorInfoDb const & errorInfo)
 {
 	dt const currentStepError = ::fabs(errorInfo.getError(0));
 
@@ -91,18 +95,21 @@ AdaLearningFactor::computeLfactor(LearningFactor::ErrorInfoDb & errorInfo)
 
 class BisectionLearningFactor : public LearningFactor
 {
-
+	uint32 numOfComputedLfactors;
+	bool const createPlots;
 	dt lFactor;
 
 public:
 
-	BisectionLearningFactor();
+	BisectionLearningFactor(bool const createPlots);
 
 	virtual dt getLfactor() const;
-	virtual dt computeLfactor(ErrorInfoDb &);
+	virtual dt computeLfactor(ErrorInfoDb const &);
 };
 
-BisectionLearningFactor::BisectionLearningFactor() :
+BisectionLearningFactor::BisectionLearningFactor(bool const createPlotsArg) :
+	numOfComputedLfactors(0),
+	createPlots(createPlotsArg),
 	lFactor(0)
 {
 }
@@ -114,11 +121,15 @@ BisectionLearningFactor::getLfactor() const
 }
 
 dt
-BisectionLearningFactor::computeLfactor(ErrorInfoDb & errorInfoDb)
+BisectionLearningFactor::computeLfactor(ErrorInfoDb const & errorInfoDb)
 {
 	static int32 const precision = 100;
 	dt minError = errorInfoDb.getError(0);
 	dt bestLearningFactor = 0;
+
+	std::vector<dt> errorsOfExaminedFactors;
+	errorsOfExaminedFactors.reserve(2*precision);
+
 	for (int32 i=-precision; i<precision; ++i)
 	{
 		dt const learningFactorExamined = static_cast<dt>(i)/static_cast<dt>(precision);
@@ -128,6 +139,18 @@ BisectionLearningFactor::computeLfactor(ErrorInfoDb & errorInfoDb)
 			minError = errorOfExamiedLfactor;
 			bestLearningFactor = learningFactorExamined;
 		}
+		errorsOfExaminedFactors.push_back(errorOfExamiedLfactor);
+	}
+
+	if (this->createPlots)
+	{
+		++ this->numOfComputedLfactors;
+		std::ostringstream plotNameOss, fileNameOss;
+		plotNameOss << "lFactor computation no " << this->numOfComputedLfactors
+			<< ", bestLfactor:" << bestLearningFactor << " has error:" << minError;
+		fileNameOss << "lFactor_no_" << this->numOfComputedLfactors << ".png";
+
+		Graphs::plotGraph1D(errorsOfExaminedFactors, 800, 600, plotNameOss.str(), fileNameOss.str(), true);
 	}
 
 	this->lFactor = bestLearningFactor;
@@ -151,9 +174,9 @@ LearningFactorCreate::createSecondOrderPolynomialBasedLearningFactor()
 }
 
 std::auto_ptr<LearningFactor>
-LearningFactorCreate::createBisectionBasedLearningFactor()
+LearningFactorCreate::createBisectionBasedLearningFactor(bool const createPlots)
 {
-	return std::auto_ptr<LearningFactor>(new BisectionLearningFactor);
+	return std::auto_ptr<LearningFactor>(new BisectionLearningFactor(createPlots));
 }
 
 } // ns ajres

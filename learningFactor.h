@@ -20,14 +20,14 @@ public:
 	};
 
 	virtual dt getLfactor() const = 0;
-	virtual dt computeLfactor(ErrorInfoDb &) = 0;
+	virtual dt computeLfactor(ErrorInfoDb const &) = 0;
 };
 
 struct LearningFactorCreate
 {
 	static std::auto_ptr<LearningFactor> createAdaptativeLearningFactor(dt const initialFactor = 1.0);
 	static std::auto_ptr<LearningFactor> createSecondOrderPolynomialBasedLearningFactor();
-	static std::auto_ptr<LearningFactor> createBisectionBasedLearningFactor();
+	static std::auto_ptr<LearningFactor> createBisectionBasedLearningFactor(bool const createPlots);
 };
 
 }

@@ -5,7 +5,10 @@
 #include <root/TCanvas.h>
 #include <root/TStyle.h>
 
+#include <boost/foreach.hpp>
+
 #include <vector>
+#include <fstream>
 
 namespace ajres
 {
@@ -13,9 +16,12 @@ namespace ajres
 void
 Graphs::plotGraph1D(
 	std::vector<dt> const & ybins, uint32 const xSize, uint32 const ySize,
-	std::string const & graphTitle, std::string const & fileName
+	std::string const & graphTitle, std::string const & fileName,
+	bool const dumpBinaryData
 )
 {
+	std::string const fileNameWithDirectory = std::string("out/") + fileName;
+
 	uint32 const binsCount = ybins.size();
 	std::vector<dt> xbins;
 	xbins.reserve(binsCount);
@@ -37,11 +43,23 @@ Graphs::plotGraph1D(
 
 	::TImage * img = ::TImage::Create();
 	img->FromPad(cv);
-	img->WriteImage((std::string("out/") + fileName).c_str());
+	img->WriteImage(fileNameWithDirectory.c_str());
 
 	delete img;
 	delete cv;
 	delete g;
+
+	if (dumpBinaryData)
+	{
+		std::string const dumpFileName = fileNameWithDirectory + std::string(".txt");
+		std::ofstream fStream(dumpFileName.c_str());
+		uint32 idx = 0;
+		BOOST_FOREACH(dt const graphValue, ybins)
+		{
+			fStream << idx << " " << graphValue << "\n";
+			++ idx;
+		}
+	}
 }
 
 }

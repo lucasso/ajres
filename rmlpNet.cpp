@@ -102,7 +102,7 @@ Entry::weightUpdateHelper(std::vector<Entry> & entries, dt const factor)
 {
 	BOOST_FOREACH(Entry & entry, entries)
 	{
-		BOOST_ASSERT(entry.dif.is_initialized());
+		AJRES_ASSERT(entry.dif.is_initialized(), "trying to update weight of entry that hs no dif set, " << entry);
 		std::cout << "updating entry:" << entry << " by factor * dif:" << *(entry.dif) << "\n";
 		entry.weight += factor * (*entry.dif);
 	}
@@ -522,6 +522,8 @@ RmlpNet::RmlpNet(
 
 	BOOST_ASSERT(inputDelayNrons.size() >= 2u); // at least bias and current input value
 	BOOST_ASSERT(hiddenNrons.size() >= 2u); // at least bias and one hidden nron
+
+	this->computeValues();
 }
 
 RmlpNet::~RmlpNet()
@@ -700,21 +702,41 @@ RmlpNet::checkDifs(dt const measurement) const
 }
 
 dt
+RmlpNet::getCurrentError() const
+{
+	return ::fabs(this->measurement - this->finalNron.getNronInternalConst().getOutput());
+}
+
+dt
 RmlpNet::getError(dt const proposedLFactor) const
 {
-	dt const measurement = this->inputDelayNrons[1].getInput();
-
-	if (proposedLFactor == 0)
+	if (false && proposedLFactor == 0)
 	{
-		dt const predictionError = measurement - this->finalNron.getNronInternalConst().getOutput();
+		dt const predictionError = ::fabs(this->measurement - this->finalNron.getNronInternalConst().getOutput());
+
+//		RmlpNet tmpNet(*this);
+//		dt const predictionErrorOfCopy = ::fabs(this->measurement - tmpNet.finalNron.getNronInternalConst().getOutput());
+//
+//		AJRES_ASSERT(predictionError == predictionErrorOfCopy, "predictionErrorOfCopy:" << predictionErrorOfCopy
+//			<< " differs from predictionError:" << predictionError << " computed on origin");
+//
+//		tmpNet.updateWeights(0);
+//		tmpNet.computeValues();
+//		dt const predictionErrorOfCopyAfterFakeUpdate = ::fabs(this->measurement - tmpNet.finalNron.getNronInternalConst().getOutput());
+//
+//		AJRES_ASSERT(predictionErrorOfCopyAfterFakeUpdate == predictionErrorOfCopy, "predictionErrorOfCopy:" << predictionErrorOfCopy
+//			<< " differs from predictionErrorOfCopyAfterFakeUpdate:" << predictionErrorOfCopyAfterFakeUpdate);
+
+
 		return predictionError;
 	}
 	else
 	{
 		RmlpNet tmpNet(*this);
 		tmpNet.updateWeights(proposedLFactor);
-		tmpNet.changeValues();
-		dt const predictionError = measurement - tmpNet.finalNron.getNronInternalConst().getOutput();
+		tmpNet.computeValues();
+		dt const predictionError = ::fabs(this->measurement - tmpNet.finalNron.getNronInternalConst().getOutput());
+		std::cout << "getError(" << proposedLFactor << ") = " << predictionError << "\n";
 		return predictionError;
 		//AJRES_ASSERT(false, "not-implemented");
 	}
@@ -751,7 +773,7 @@ RmlpNet::computeDirectionOfWeigtsChange()
 void
 RmlpNet::updateWeights(dt const lFactorValue)
 {
-	dt const weightsChangefactor = lFactorValue * this->getError(0); // predictionError;
+	dt const weightsChangefactor = lFactorValue == 0 ? 0 : lFactorValue * this->getCurrentError(); // predictionError;
 
 	this->finalNron.updateWeights(weightsChangefactor);
 
@@ -806,11 +828,14 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 
 	this->computeDirectionOfWeigtsChange();
 	this->measurement = measurement;
+	std::cout << "juju, before weight update, error:" << this->getCurrentError() << "\n";
 	this->learningFactor.computeLfactor(*this);
 	this->updateWeights(this->learningFactor.getLfactor());
+	this->computeValues();
+	std::cout << "juju, after weight update, error:" << (measurement - this->finalNron.getNronInternal().getOutput()) << "\n";
 
-	std::cout << "weight update factor is: " << (this->learningFactor.getLfactor() * this->getError(0)) << " = lFactor:"
-			<< this->learningFactor.getLfactor() << " * predictionError:" << this->getError(0) << "\n";
+	std::cout << "weight update factor is: " << (this->learningFactor.getLfactor() * this->getCurrentError()) << " = lFactor:"
+			<< this->learningFactor.getLfactor() << " * predictionError:" << this->getCurrentError() << "\n";
 
 	this->changeValues();
 

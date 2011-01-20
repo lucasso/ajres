@@ -12,7 +12,8 @@ struct Graphs
 {
 	static void plotGraph1D(
 		std::vector<dt> const &, uint32 const xSize, uint32 const ySize,
-		std::string const & graphTitle, std::string const & fileName
+		std::string const & graphTitle, std::string const & fileName,
+		bool const dumpBinaryData = false
 	);
 };
 

@@ -173,6 +173,7 @@ class RmlpNet : LearningFactor::ErrorInfoDb
 	void checkDif(Entry & entry, dt const measurement, dt const origOutput, dt const origError);
 	void checkDifs(dt const measurement) const;
 
+	dt getCurrentError() const;
 	virtual dt getError(dt const proposedLFactor) const; // LearningFactor::ErrorInfoDb interface
 
 	// main steps od addNew...
