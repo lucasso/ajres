@@ -846,6 +846,16 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 	return this->finalNron.getNronInternalConst().getOutput();
 }
 
+std::string
+RmlpNet::getName() const
+{
+	std::ostringstream oss;
+	oss << "{i:" << this->getNumInputDelayNrons()
+		<< ",o:" << this->getNumOutputDelayNrons()
+		<< ",h:" << this->getNumHiddenNrons() << "}";
+	return oss.str();
+}
+
 std::ostream & operator << (std::ostream & osek, RmlpNet const & rmlpNet)
 {
 	osek << "RmlpNet{ learningFactor:" << rmlpNet.learningFactor.getLfactor()

@@ -197,6 +197,8 @@ public:
 	uint16 getNumInputDelayNrons() const { return this->numInputDelayNrons; }
 	uint16 getNumOutputDelayNrons() const { return this->numOutputDelayNrons; }
 	uint16 getNumHiddenNrons() const { return this->numHiddenNrons; }
+
+	std::string getName() const;
 };
 
 std::ostream & operator << (std::ostream &, Entry const &);

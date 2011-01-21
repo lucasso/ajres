@@ -51,7 +51,8 @@ constantValuePredictionTest()
 bool
 netsFarmTest()
 {
-	NetsFarm farm(15);
+	std::auto_ptr<LearningFactor> lFactor = LearningFactorCreate::createBisectionBasedLearningFactor(false);
+	NetsFarm farm(15, *lFactor);
 	return testImpl(farm);
 }
 

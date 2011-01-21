@@ -28,17 +28,15 @@ NetsFarm::Net::Net(
 std::string
 NetsFarm::Net::getName() const
 {
-	std::ostringstream oss;
-	oss << "{i:" << this->net->getNumInputDelayNrons()
-		<< ",o:" << this->net->getNumOutputDelayNrons()
-		<< ",h:" << this->net->getNumHiddenNrons() << "}";
-	return oss.str();
+	return this->net->getName();
 }
 
-NetsFarm::NetsFarm(uint32 const maxTotalNronsNum) :
-	lFactor(LearningFactorCreate::createBisectionBasedLearningFactor(false)),
+NetsFarm::NetsFarm(uint32 const maxTotalNronsNumArg, LearningFactor & lFactorArg) :
+	lFactor(lFactorArg),
+	maxTotalNronsNum(maxTotalNronsNumArg),
 	samplesNum(0),
-	weightedPrediction(0)
+	weightedPrediction(0),
+	fStream("out/netsFarmLog.txt")
 {
 	AJRES_ASSERT(maxTotalNronsNum >= 4, "at least 4 nrons required, but max was set to " << maxTotalNronsNum);
 
@@ -50,7 +48,7 @@ NetsFarm::NetsFarm(uint32 const maxTotalNronsNum) :
 				"too many delay nrons, at least 2 should be left for hiddenlayer");
 			uint32 const hiddenNrons = maxTotalNronsNum - inputDelayNrons - outputDelayNrons;
 
-			this->nets.push_back(Net(inputDelayNrons, outputDelayNrons, hiddenNrons, *this->lFactor));
+			this->nets.push_back(Net(inputDelayNrons, outputDelayNrons, hiddenNrons, this->lFactor));
 		}
 	}
 }
@@ -63,7 +61,7 @@ NetsFarm::addNewMeasurementAndGetPrediction(dt const measurement)
 
 	if (this->samplesNum > 0)
 	{
-		std::cout << "sampleNum:" << this->samplesNum << " predictionWas:" << this->weightedPrediction
+		this->fStream << "sampleNum:" << this->samplesNum << " predictionWas:" << this->weightedPrediction
 			<< ", measurementIs:" << measurement << ", error:" << ::fabs(this->weightedPrediction - measurement) << "\n";
 
 		Net* netOfTheBestCurrentPrediction = NULL;
@@ -85,7 +83,7 @@ NetsFarm::addNewMeasurementAndGetPrediction(dt const measurement)
 			weightedPredictionsTotalSum += net.errorSquares * net.prediction;
 		}
 
-		std::cout << "best prediction was made by " << netOfTheBestCurrentPrediction->getName()
+		this->fStream << "best prediction was made by " << netOfTheBestCurrentPrediction->getName()
 			<< ", error:" << netOfTheBestCurrentPrediction->lastPredictionError << "\n";
 		++ netOfTheBestCurrentPrediction->bestCount;
 	}
@@ -104,15 +102,25 @@ NetsFarm::addNewMeasurementAndGetPrediction(dt const measurement)
 	return this->weightedPrediction;
 }
 
+std::string
+NetsFarm::getName() const
+{
+	std::ostringstream oss;
+	oss << "NetsFarm{max:" << this->maxTotalNronsNum << "}";
+	return oss.str();
+}
+
 NetsFarm::~NetsFarm()
 {
 	std::sort(this->nets.begin(), this->nets.end());
 
 	BOOST_FOREACH(Net & net, this->nets)
 	{
-		std::cout << "net:" << net.getName() << ", bestCount:" << net.bestCount << "\n";
+		this->fStream << "net:" << net.getName() << ", bestCount:" << net.bestCount << "\n";
 		delete net.net;
 	}
+
+	this->fStream.close();
 }
 
 

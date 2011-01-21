@@ -1,7 +1,7 @@
 #FLAGS_C=-I/usr/include/ -I/usr/local/include/boost-1_35/ -Wall
 FLAGS_C=-Wall -Werror -O3 #-ggdb  -gstabs  -gstabs+
 FLAGS_ROOT_C= `root-config --cflags`
-FLAGS_ROOT_L= `root-config --glibs`
+FLAGS_ROOT_L= `root-config --glibs` -lboost_program_options
 
 srcs=longDataReader common graphs rmlpNet learningFactor netsFarm
 objs=$(patsubst %, obj/%.o, $(srcs))

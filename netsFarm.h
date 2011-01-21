@@ -2,6 +2,7 @@
 #define __AJRES_NETS_FARM_H
 
 #include <vector>
+#include <fstream>
 
 #include "common.h"
 
@@ -33,18 +34,22 @@ class NetsFarm
 		);
 	};
 
-	std::auto_ptr<LearningFactor> const lFactor;
+	LearningFactor & lFactor;
 	std::vector<Net> nets;
+	uint32 const maxTotalNronsNum;
 	uint32 samplesNum;
 	dt weightedPrediction;
 
+	std::ofstream fStream;
+
 public:
 
-	NetsFarm(uint32 const maxTotalNronsNum);
+	NetsFarm(uint32 const maxTotalNronsNum, LearningFactor &);
 	~NetsFarm();
 
 	dt addNewMeasurementAndGetPrediction(dt const);
 
+	std::string getName() const;
 };
 
 
