@@ -41,7 +41,7 @@ void ajresLoop(PredictionMachineT & predictionMachine, std::vector<dt> const & i
 			dt const predictionError = ::fabs(previousPrediction - inputValue);
 			fStream << "prediction no " << idx << " was " << previousPrediction << " expected:" << inputValue
 				<< ", predictionError:" << predictionError << "\n";
-			errors.push_back(predictionError);
+			errors.push_back(idx<20 ? 0 : predictionError);
 		}
 		previousPrediction = predictionMachine.addNewMeasurementAndGetPrediction(inputValue);
 		++ idx;
@@ -51,8 +51,8 @@ void ajresLoop(PredictionMachineT & predictionMachine, std::vector<dt> const & i
 
 	if (plotErrors)
 	{
-		std::string const plotName = "prediction errors " + predictionMachine.getName();
-		Graphs::plotGraph1D(errors, 300, 100, plotName.c_str(), "predictionErrors.png");
+		std::string const plotName = "prediction errors [s] " + predictionMachine.getName();
+		Graphs::plotGraph1D(errors, 3000, 1000, plotName.c_str(), "predictionErrors.png", true, true);
 	}
 }
 
@@ -63,6 +63,7 @@ void mainAjres(int ac, char** av)
 	uint32 outputDelayNronsNum;
 	uint32 hiddenNronsNum;
 	uint32 maxNronsIfSearch = 0;
+	uint32 inputRecordsLimit;
 	std::string inputData;
 
 	AjresMode ajresMode = SINGLE_NET;
@@ -88,6 +89,8 @@ void mainAjres(int ac, char** av)
 	    ("plotPredictionError", "create graph of prediction errors")
 	    ("plotLearningFactorComputation",
 	    	"nn implementation related plots of computing optimal learningFactor at each weight update step")
+	    ("inputRecordsLimit", po::value<uint32>(&inputRecordsLimit)->default_value(0u),
+	    	"limit input data to the specified number of records, 0 means no limit, default 0")
 	;
 
 	po::variables_map vm;
@@ -128,16 +131,21 @@ void mainAjres(int ac, char** av)
 	lods.reserve(items->size());
 	//ut1utcDiffs.reserve(items->size());
 
+	uint32 idx = 0;
 	BOOST_FOREACH(LongDataItem ldi, *items)
 	{
-		lods.push_back(ldi.lod);
-		//ut1utcDiffs.push_back(ldi.ut1utcDiff);
+		if (inputRecordsLimit == 0 || idx < inputRecordsLimit )
+		{
+			lods.push_back(ldi.lod);
+			//ut1utcDiffs.push_back(ldi.ut1utcDiff);
+			++ idx;
+		}
 		//std::cout << ldi << "\n";
 	}
 
 	if (plotInputDataFlag)
 	{
-		Graphs::plotGraph1D(lods, 300, 100, "LOD", "lod.png");
+		Graphs::plotGraph1D(lods, 3000, 1000, "LOD [s]", "lod.png", true, false);
 		//Graphs::plotGraph1D(ut1utcDiffs, 800, 300, "UT1 - UTC", "ut1utcDiff.png");
 	}
 

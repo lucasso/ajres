@@ -29,18 +29,19 @@ obj/%.o: %.cpp %.h
 obj/rmlpTest.o: tests/rmlpTest.cpp
 	g++ $(FLAGS_C) -c $< -o $@
 
-doc/konspekt.pdf: doc/konspekt.ps
-	ps2pdf doc/konspekt.ps doc/konspekt.pdf
+doc/%.pdf: doc/%.ps
+	ps2pdf $< $@
 
-doc/konspekt.ps: konspekt.dvi
-	dvips -f konspekt.dvi > doc/konspekt.ps
+doc/%.ps: %.dvi
+	dvips -f $< > $@
 	
-konspekt.dvi: konspekt.tex
-	latex konspekt.tex
-	latex konspekt.tex
+%.dvi: %.tex
+	latex $<
+	latex $<
 
 clean:
 	rm -rf obj/*.o bin/ajres bin/rmlpTest *~ 
 
 cleandoc:
 	rm -rf konspekt.dvi konspekt.log konspekt.aux konspekt.toc doc/konspekt.pdf doc/konspekt.ps doc/texput.log texput.log
+	rm -rf opis.dvi opis.log opis.aux opis.toc doc/opis.pdf doc/opis.ps doc/texput.log texput.log	

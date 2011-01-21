@@ -17,7 +17,7 @@ void
 Graphs::plotGraph1D(
 	std::vector<dt> const & ybins, uint32 const xSize, uint32 const ySize,
 	std::string const & graphTitle, std::string const & fileName,
-	bool const dumpBinaryData
+	bool const dumpBinaryData, bool const logScale
 )
 {
 	std::string const fileNameWithDirectory = std::string("out/") + fileName;
@@ -39,6 +39,7 @@ Graphs::plotGraph1D(
 
 	TCanvas* cv = new TCanvas("Lukasz", "Slusarczyk", xSize, ySize);
 	gStyle->SetPalette(1);
+	if (logScale) gStyle->SetOptLogy();
 	g->Draw("AC");
 
 	::TImage * img = ::TImage::Create();

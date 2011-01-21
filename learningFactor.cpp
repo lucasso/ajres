@@ -150,7 +150,7 @@ BisectionLearningFactor::computeLfactor(ErrorInfoDb const & errorInfoDb)
 			<< ", bestLfactor:" << bestLearningFactor << " has error:" << minError;
 		fileNameOss << "lFactor_no_" << this->numOfComputedLfactors << ".png";
 
-		Graphs::plotGraph1D(errorsOfExaminedFactors, 800, 600, plotNameOss.str(), fileNameOss.str(), true);
+		Graphs::plotGraph1D(errorsOfExaminedFactors, 800, 600, plotNameOss.str(), fileNameOss.str(), true, false);
 	}
 
 	this->lFactor = bestLearningFactor;
