@@ -1,9 +1,9 @@
 #FLAGS_C=-I/usr/include/ -I/usr/local/include/boost-1_35/ -Wall
-FLAGS_C=-Wall -Werror -ggdb  -gstabs  -gstabs+
+FLAGS_C=-Wall -Werror -O3 #-ggdb  -gstabs  -gstabs+
 FLAGS_ROOT_C= `root-config --cflags`
 FLAGS_ROOT_L= `root-config --glibs`
 
-srcs=longDataReader common graphs rmlpNet learningFactor
+srcs=longDataReader common graphs rmlpNet learningFactor netsFarm
 objs=$(patsubst %, obj/%.o, $(srcs))
 
 all: bin/ajres bin/rmlpTest

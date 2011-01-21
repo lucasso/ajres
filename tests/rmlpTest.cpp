@@ -1,4 +1,5 @@
 #include "../rmlpNet.h"
+#include "../netsFarm.h"
 #include <iostream>
 
 namespace ajres
@@ -16,14 +17,12 @@ public:
 	}
 };
 
-
-bool
-constantValuePredictionTest()
+template <class PredictionMachineT>
+bool testImpl(PredictionMachineT & predictionMachine)
 {
 	//RmlpNet net(10,10,5, std::auto_ptr<RandomGenerator>(new ConstantGenerator<25u>));
 	//std::auto_ptr<LearningFactor> lFactor = LearningFactorCreate::createAdaptativeLearningFactor();
-	std::auto_ptr<LearningFactor> lFactor = LearningFactorCreate::createBisectionBasedLearningFactor(true);
-	RmlpNet net(10,10,5, RandomGenerator::createDefault(), *lFactor);
+
 
 	dt previousPrediction = 0;
 
@@ -32,7 +31,7 @@ constantValuePredictionTest()
 		dt const expect = (i % 4) * 0.25 + 0.12;
 		//dt const expect = 3.0;
 		std::cout << "prediction no " << i << " was " << previousPrediction << " expected:" << expect << "\n";
-		previousPrediction = net.addNewMeasurementAndGetPrediction(expect);
+		previousPrediction = predictionMachine.addNewMeasurementAndGetPrediction(expect);
 
 		//if (prediction == expect) break;
 	}
@@ -40,6 +39,21 @@ constantValuePredictionTest()
 	return true;
 }
 
+bool
+constantValuePredictionTest()
+{
+	std::auto_ptr<LearningFactor> lFactor = LearningFactorCreate::createBisectionBasedLearningFactor(true);
+	RmlpNet net(10,10,5, RandomGenerator::createDefault(), *lFactor);
+
+	return testImpl(net);
+}
+
+bool
+netsFarmTest()
+{
+	NetsFarm farm(15);
+	return testImpl(farm);
+}
 
 }
 }
@@ -47,6 +61,7 @@ constantValuePredictionTest()
 
 int main()
 {
-	ajres::tests::constantValuePredictionTest();
+	//ajres::tests::constantValuePredictionTest();
+	ajres::tests::netsFarmTest();
 	return 0;
 }

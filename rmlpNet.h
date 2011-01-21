@@ -142,9 +142,9 @@ public:
 
 class RmlpNet : LearningFactor::ErrorInfoDb
 {
-	uint16 const numInputDelayNrons; // without bias
+	uint16 const numInputDelayNrons; // including bias
 	uint16 const numOutputDelayNrons;
-	uint16 const numHiddenNrons; // without bias
+	uint16 const numHiddenNrons; // including bias
 
 	std::vector<NronInt> inputDelayNrons;
 	std::vector<NronInt> outputDelayNrons;
@@ -193,6 +193,10 @@ public:
 	~RmlpNet();
 
 	dt addNewMeasurementAndGetPrediction(dt const);
+
+	uint16 getNumInputDelayNrons() const { return this->numInputDelayNrons; }
+	uint16 getNumOutputDelayNrons() const { return this->numOutputDelayNrons; }
+	uint16 getNumHiddenNrons() const { return this->numHiddenNrons; }
 };
 
 std::ostream & operator << (std::ostream &, Entry const &);
