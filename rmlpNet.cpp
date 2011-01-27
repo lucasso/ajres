@@ -713,7 +713,7 @@ RmlpNet::getError(dt const proposedLFactor) const
 	RmlpNet tmpNet(*this);
 	tmpNet.updateWeights(proposedLFactor);
 	tmpNet.computeValues();
-	dt const predictionError = ::fabs(this->measurement - tmpNet.finalNron.getNronInternalConst().getOutput());
+	dt const predictionError = this->measurement - tmpNet.finalNron.getNronInternalConst().getOutput();
 	//std::cout << "getError(" << proposedLFactor << ") = " << predictionError << "\n";
 	return predictionError;
 }
@@ -784,7 +784,6 @@ RmlpNet::changeValues()
 dt
 RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 {
-
 	// mam jakies wejscie i obliczam wyjscie i je zwracam
 	// (
 	//   licze kierunek w jakim wyjscie zalezy od wag
@@ -814,34 +813,6 @@ RmlpNet::addNewMeasurementAndGetPrediction(dt const measurement)
 //			<< this->learningFactor.getLfactor() << " * predictionError:" << this->getCurrentError() << "\n";
 
 	this->changeValues();
-
-	// new measurement has come
-
-
-
-	// actualize weights
-
-	// calculate w1 and w2 weight diffs
-
-	//juju
-	//std::cout << "new measurement:" << measurement << ", values updated, difs computed\n" << *this << "\n\n";
-
-	//this->checkDifs(measurement);
-
-	// adjust weights according to newly computed w1 and w2 difs
-
-
-
-
-	// update recentW2diffs to be used in next w1 w2 dif compatations
-
-
-
-	// reset w1 and w2 difs
-
-
-
-	// update values
 
 	return this->finalNron.getNronInternalConst().getOutput();
 }

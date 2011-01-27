@@ -99,6 +99,8 @@ class BisectionLearningFactor : public LearningFactor
 	bool const createPlots;
 	dt lFactor;
 
+	dt computeLfactorImpl(ErrorInfoDb const &) const;
+
 public:
 
 	BisectionLearningFactor(bool const createPlots);
@@ -121,40 +123,83 @@ BisectionLearningFactor::getLfactor() const
 }
 
 dt
+BisectionLearningFactor::computeLfactorImpl(ErrorInfoDb const & errorInfoDb) const
+{
+	uint32 stepsLeft = 10;
+
+	dt left = -1;
+	dt right = 1;
+
+	dt leftErr = errorInfoDb.getError(-1);
+	dt rightErr = errorInfoDb.getError(1);
+
+	if (rightErr == 0) return right;
+	if (leftErr == 0) return left;
+
+	if ((leftErr>0 && rightErr>0) || (leftErr<0 && rightErr<0))
+	{
+		if (leftErr<rightErr) return left; else return right;
+	}
+
+	while (-- stepsLeft)
+	{
+		dt const mid = (left + right) / 2;
+		dt const midErr = errorInfoDb.getError(mid);
+
+		if (midErr == 0) return mid;
+		if ((midErr < 0 && leftErr < 0) || (midErr > 0 && leftErr > 0))
+		{
+			left = mid;
+			leftErr = midErr;
+		}
+		else
+		{
+			right = mid;
+			rightErr = midErr;
+		}
+	}
+
+	return (left + right)/2;
+}
+
+dt
 BisectionLearningFactor::computeLfactor(ErrorInfoDb const & errorInfoDb)
 {
-	static int32 const precision = 100;
-	dt minError = errorInfoDb.getError(0);
-	dt bestLearningFactor = 0;
-
-	std::vector<dt> errorsOfExaminedFactors;
-	errorsOfExaminedFactors.reserve(2*precision);
-
-	for (int32 i=-precision; i<precision; ++i)
-	{
-		dt const learningFactorExamined = static_cast<dt>(i)/static_cast<dt>(precision);
-		dt const errorOfExamiedLfactor = errorInfoDb.getError(learningFactorExamined);
-		if (errorOfExamiedLfactor < minError)
-		{
-			minError = errorOfExamiedLfactor;
-			bestLearningFactor = learningFactorExamined;
-		}
-		errorsOfExaminedFactors.push_back(errorOfExamiedLfactor);
-	}
-
-	if (this->createPlots)
-	{
-		++ this->numOfComputedLfactors;
-		std::ostringstream plotNameOss, fileNameOss;
-		plotNameOss << "lFactor computation no " << this->numOfComputedLfactors
-			<< ", bestLfactor:" << bestLearningFactor << " has error:" << minError;
-		fileNameOss << "lFactor_no_" << this->numOfComputedLfactors << ".png";
-
-		Graphs::plotGraph1D(errorsOfExaminedFactors, 800, 600, plotNameOss.str(), fileNameOss.str(), true, false);
-	}
-
-	this->lFactor = bestLearningFactor;
+	this->lFactor = this->computeLfactorImpl(errorInfoDb);
 	return this->lFactor;
+
+//	static int32 const precision = 100;
+//	dt minError = ::fabs(errorInfoDb.getError(0));
+//	dt bestLearningFactor = 0;
+//
+//	std::vector<dt> errorsOfExaminedFactors;
+//	errorsOfExaminedFactors.reserve(2*precision);
+//
+//	for (int32 i=-precision; i<precision; ++i)
+//	{
+//		dt const learningFactorExamined = static_cast<dt>(i)/static_cast<dt>(precision);
+//		dt const errorOfExamiedLfactor = ::fabs(errorInfoDb.getError(learningFactorExamined));
+//		if (errorOfExamiedLfactor < minError)
+//		{
+//			minError = errorOfExamiedLfactor;
+//			bestLearningFactor = learningFactorExamined;
+//		}
+//		errorsOfExaminedFactors.push_back(errorOfExamiedLfactor);
+//	}
+//
+//	if (this->createPlots)
+//	{
+//		++ this->numOfComputedLfactors;
+//		std::ostringstream plotNameOss, fileNameOss;
+//		plotNameOss << "lFactor computation no " << this->numOfComputedLfactors
+//			<< ", bestLfactor:" << bestLearningFactor << " has error:" << minError;
+//		fileNameOss << "lFactor_no_" << this->numOfComputedLfactors << ".png";
+//
+//		Graphs::plotGraph1D(errorsOfExaminedFactors, 800, 600, plotNameOss.str(), fileNameOss.str(), true, false);
+//	}
+//
+//	this->lFactor = bestLearningFactor;
+//	return this->lFactor;
 }
 
 // ========================================================================
