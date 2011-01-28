@@ -11,6 +11,7 @@
 #include "analyzer.h"
 #include "rmlpNet.h"
 #include "netsFarm.h"
+#include "leastSquares.h"
 
 namespace ajres
 {
@@ -20,11 +21,36 @@ namespace po = boost::program_options;
 enum AjresMode
 {
 	SINGLE_NET,
-	ARCHITECTURE_SEARCH
+	ARCHITECTURE_SEARCH,
+	LEAST_SQUARES
+};
+
+class AvgComputer
+{
+	dt sum;
+	uint32 count;
+public:
+
+	AvgComputer() :
+		sum(0.0),
+		count(0)
+	{}
+
+	void add(dt const val)
+	{
+		this->sum += val;
+		++ this->count;
+	}
+
+	dt getAvg() const
+	{
+		if (this->count) return this->sum / this->count;
+		return 0.0;
+	}
 };
 
 template <class PredictionMachineT>
-void ajresLoop(PredictionMachineT & predictionMachine, std::vector<dt> const & input, bool const plotErrors)
+void ajresLoop(PredictionMachineT & predictionMachine, std::vector<dt> const & input, bool const plotErrors, dt const scale)
 {
 	dt previousPrediction = 0;
 
@@ -32,20 +58,31 @@ void ajresLoop(PredictionMachineT & predictionMachine, std::vector<dt> const & i
 	errors.reserve(input.size() - 1);
 
 	std::ofstream fStream("out/predictionsLog.txt");
+	AvgComputer avgPercentError, avgRealError;
 
 	uint32 idx = 0;
-	BOOST_FOREACH(dt inputValue, input)
+	BOOST_FOREACH(dt inputValueBeforeScaling, input)
 	{
+		dt const inputValue = inputValueBeforeScaling * scale;
+
 		if (idx)
 		{
 			dt const predictionError = ::fabs(previousPrediction - inputValue);
-			fStream << "prediction no " << idx << " was " << previousPrediction << " expected:" << inputValue
-				<< ", predictionError:" << predictionError << "\n";
-			errors.push_back(idx<20 ? 0 : predictionError);
+			dt const predictionErrorNonScaled = predictionError/scale;
+			dt const previousPredictionNonScaled = previousPrediction/scale;
+			dt const predictionErrorPercent = inputValue == 0.0 ? 0.0 : predictionError * 100.0 / ::fabs(inputValue);
+			fStream << "prediction no " << idx << " was " << previousPredictionNonScaled << " expected:" << inputValueBeforeScaling
+				<< ", predictionError:" << predictionErrorNonScaled << ", errorPercent:" << predictionErrorPercent << "\n";
+			errors.push_back(idx<20 ? 0 : predictionErrorNonScaled);
+
+			avgPercentError.add(predictionErrorPercent);
+			avgRealError.add(predictionErrorNonScaled);
 		}
 		previousPrediction = predictionMachine.addNewMeasurementAndGetPrediction(inputValue);
 		++ idx;
 	}
+
+	fStream << "AVG, percentError:" << avgPercentError.getAvg() << ", realError:" << avgRealError.getAvg() << "\n";
 
 	fStream.close();
 
@@ -64,6 +101,8 @@ void mainAjres(int ac, char** av)
 	uint32 hiddenNronsNum;
 	uint32 maxNronsIfSearch = 0;
 	uint32 inputRecordsLimit;
+	uint32 leastSquaresNumX = 2;
+	dt scale = 1.0;
 	std::string inputData;
 
 	AjresMode ajresMode = SINGLE_NET;
@@ -83,6 +122,8 @@ void mainAjres(int ac, char** av)
 	    	"set number of hidden layer neurons including bias, min 2, default 2")
 	    ("searchForBestArchitecture", po::value<uint32>(),
 	    	"if set parallel computations are performed on many nets and summary is printed, integer argument is the max total number of neurons, at least 4")
+	    ("useLeastSquaresFitting", po::value<uint32>(),
+	    	"if set no NeuralNetworks are used but we use LS fitting using last arg measurements")
 	    ("inputData", po::value<std::string>(&inputData)->default_value("data/long/eopc04_IAU2000.62-now"),
 	    	"file with long term earth orientation data in IAU2000A format, for details see http://www.iers.org/IERS/EN/DataProducts/EarthOrientationData/eop.html?__nnn=true")
 	    ("plotInputData", "create graph of LOD parameter from input file")
@@ -91,6 +132,8 @@ void mainAjres(int ac, char** av)
 	    	"nn implementation related plots of computing optimal learningFactor at each weight update step")
 	    ("inputRecordsLimit", po::value<uint32>(&inputRecordsLimit)->default_value(0u),
 	    	"limit input data to the specified number of records, 0 means no limit, default 0")
+	    ("scale", po::value<dt>(&scale)->default_value(1.0),
+	       	"scale input data, by multiplying them by that scale factor, cuz nrons output is always between -1 and 1")
 	;
 
 	po::variables_map vm;
@@ -102,7 +145,12 @@ void mainAjres(int ac, char** av)
 	    return;
 	}
 
-	if (vm.count("searchForBestArchitecture"))
+	if (vm.count("useLeastSquaresFitting"))
+	{
+		ajresMode = LEAST_SQUARES;
+		leastSquaresNumX = vm["useLeastSquaresFitting"].as<uint32>();
+	}
+	else if (vm.count("searchForBestArchitecture"))
 	{
 	    ajresMode = ARCHITECTURE_SEARCH;
 	    maxNronsIfSearch = vm["searchForBestArchitecture"].as<uint32>();
@@ -164,7 +212,7 @@ void mainAjres(int ac, char** av)
 			*lFactor
 		);
 
-		ajresLoop(rmlpNet, lods, plotPredictionErrorFlag);
+		ajresLoop(rmlpNet, lods, plotPredictionErrorFlag, scale);
 		return;
 	}
 	case ARCHITECTURE_SEARCH:
@@ -173,7 +221,13 @@ void mainAjres(int ac, char** av)
 			maxNronsIfSearch,
 			*lFactor
 		);
-		ajresLoop(netsFarm, lods, plotPredictionErrorFlag);
+		ajresLoop(netsFarm, lods, plotPredictionErrorFlag, scale);
+		return;
+	}
+	case LEAST_SQUARES:
+	{
+		LeastSquares ls(leastSquaresNumX);
+		ajresLoop(ls, lods, plotPredictionErrorFlag, scale);
 		return;
 	}
 	}
